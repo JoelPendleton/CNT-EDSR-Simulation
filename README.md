@@ -6,4 +6,4 @@ Theory based on '_Coherent Single Electron Spin Control in a Slanting Zeeman Fie
 * https://kwant-project.org
 * https://tkwant.kwant-project.org
 
-![Wave functions](wavefunctions.svg)
+![Wave functions](./figures/wavefunctions.svg)
