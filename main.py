@@ -6,194 +6,218 @@ import tkwant
 import scipy.sparse.linalg as sla
 from numpy import vectorize
 
-hamiltonian = "(C * k_x**2 + V(x)) * identity(2) + A * sigma_x + B * x * sigma_y"
-template = kwant.continuum.discretize(hamiltonian)
+class System:
+    def __init__(self, hamiltonian, lattices):
+        # constants in SI
+        self.hbar_SI = 1.054571817e-34
+        self.e_SI = 1.602176634e-19
+        self.a_0_SI = 5.2917721090380e-11
+        self.total_length_m = 7820e-9
+        self.B_0_SI = 100e-3
+        self.b_sl_SI = 250e-3
 
-# constants in SI
-hbar_SI = 1.054571817e-34
-e_SI = 1.602176634e-19
-a_0_SI = 5.2917721090380e-11
-total_length_m = 7820e-9
-B_0_SI = 100e-3
-b_sl_SI = 150e-3
+        # Constants in a.u.
+        self.hbar = 1
+        self.g = 2
+        self.m = 1
+        self.e = 1
+        self.total_length_au = self.total_length_m / self.a_0_SI
+        self.lattices = lattices
+        self.lattice_size = self.total_length_au / self.lattices
+        self.mu_B = self.e * self.hbar / (2 * self.m)
+        self.a_0 = 1
 
-# Constants in a.u.
-hbar = 1
-g = 2
-m = 1
-e = 1
-total_length_au = total_length_m / a_0_SI
-lattices = 100
-lattice_size = total_length_au / lattices
-mu_B = e * hbar / (2 * m)
-a_0 = 1
+        self.hamiltonian = hamiltonian
+        self.template = kwant.continuum.discretize(hamiltonian)
 
-def tesla_SI_to_au(tesla):
-    """
-    Function to convert the magnetic flux density from SI units to AU units
-    :param tesla: the magnetic flux density in teslas.
-    :return: the magnetic flux density in AU.
-    """
-    return tesla / (hbar_SI/(e_SI * (a_0_SI ** 2)))
+        self.a = 1
 
-B_0_au = tesla_SI_to_au(B_0_SI)
-b_sl_au = tesla_SI_to_au(b_sl_SI) # in hbar/(e*(a_0)**2)
-
-A_constant = -g * mu_B * B_0_au * hbar/2
-B_constant = -g * mu_B * b_sl_au * hbar/2
-C_constant = hbar**2 / (2*m)
-a = 1
-
-
-def make_system(length):
-    """
-    Function to create the system
-    :param length: the length of the nanotube
-    :return: the system object
-    """
-
-    # We need to have 1d since the hamiltonian is 1d otherwise it can't be applied
-    def shape(site):
+    def tesla_SI_to_au(self, tesla):
         """
-        function to define the shape of the scattering region.
-        :param site: the current site.
-        :return: the a boolean saying whether the scattering site should be drawn
+        Function to convert the magnetic flux density from SI units to AU units
+        :param tesla: the magnetic flux density in teslas.
+        :return: the magnetic flux density in AU.
         """
-        (x, ) = site.pos
-        return (0 <= x < length)
+        return tesla / (self.hbar_SI/(self.e_SI * (self.a_0_SI ** 2)))
 
 
-    def lead_shape(site):
+
+
+
+
+
+    def make_system(self):
         """
-        function to define the shape of the leads.
-        :param site: the current site.
-        :return: the a boolean saying whether the lead site should be drawn
+        Function to create the system
+        :param length: the length of the nanotube
+        :return: the system object
         """
-        (x, ) = site.pos
-        return (0 <= x < length)
 
-    syst = kwant.Builder()
-
-    #Add the nanotube to the system
-    syst.fill(template, shape, (0, ));
-
-
-    #Attach the left gate to the system - for now we assume it's parallel to the nanotube
-    sym_left_lead = kwant.TranslationalSymmetry((-a, ))
-    left_lead = kwant.Builder(sym_left_lead)
-    left_lead.fill(template, lead_shape, (-length,))
-    syst.attach_lead(left_lead)
+        # We need to have 1d since the hamiltonian is 1d otherwise it can't be applied
+        def shape(site):
+            """
+            function to define the shape of the scattering region.
+            :param site: the current site.
+            :return: the a boolean saying whether the scattering site should be drawn
+            """
+            (x, ) = site.pos
+            return (0 <= x < self.lattices)
 
 
-    #Attach the right gate to the system - for now we assume it's parallel to the nanotube
-    sym_right_lead = kwant.TranslationalSymmetry((a, ))
-    right_lead = kwant.Builder(sym_right_lead)
-    right_lead.fill(template, lead_shape, (length+a,)) # The leads have the same hamiltonian as the scattering regions
-    syst.attach_lead(right_lead)
+        def lead_shape(site):
+            """
+            function to define the shape of the leads.
+            :param site: the current site.
+            :return: the a boolean saying whether the lead site should be drawn
+            """
+            (x, ) = site.pos
+            return (0 <= x < self.lattices)
 
-    return syst
+        self.syst = kwant.Builder()
 
-def sorted_eigs(ev):
-    """
-    Function to sort eigenvalues and vectors so they're in ascending order.
-    :param ev: the numpy array contianing the eigenvalues and their corresponding eigenvectors.
-    :return: the sorted eigenvalues and sorted eigenvectors.
-    """
-    evals, evecs = ev
-    evals, evecs = map(np.array, zip(*sorted(zip(evals, evecs.transpose()), key=lambda x: x[0])))
-    return evals, evecs.transpose()
+        #Add the nanotube to the system
+        self.syst.fill(self.template, shape, (0, ));
 
-def gaussian(x, mu, sig):
-    """
-    Function to compute a gaussian pulse.
-    :param x: the coordinate value
-    :param mu: the centre of the gaussian
-    :param sig: the standard deviation
-    :return: the gaussian function values.
-    """
-    return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
+        # #Attach the left gate to the system - for now we assume it's parallel to the nanotube
+        # sym_left_lead = kwant.TranslationalSymmetry((-self.a, ))
+        # left_lead = kwant.Builder(sym_left_lead)
+        # left_lead.fill(self.template, lead_shape, (-self.lattices,))
+        # self.syst.attach_lead(left_lead)
+        #
+        #
+        # #Attach the right gate to the system - for now we assume it's parallel to the nanotube
+        # sym_right_lead = kwant.TranslationalSymmetry((self.a, ))
+        # right_lead = kwant.Builder(sym_right_lead)
+        # right_lead.fill(self.template, lead_shape, (self.lattices+self.a,)) # The leads have the same hamiltonian as the scattering regions
+        # self.syst.attach_lead(right_lead)
 
-
-def potential(x):  # Infinite square well
-    """
-    Function to define the potential of the lead.
-    :param x: the position in the system.
-    :return: the potential energy.
-    """
-    if 0 <= x <= lattices / 2:
-        return 0.001 * gaussian(x, lattices / 4, lattices / 14)
-    elif lattices / 2 <= x <= lattices:
-        return 0
-    else:
-        return 999999999
+        kwant.plot(self.syst, file='./figures/shape.png');
+        self.syst = self.syst.finalized()
+        return self.syst
 
 
-def eigenstates(syst):
-    """
-    Function to compute the eigenstates of the system.
-    :param syst: the system object.
-    :return: the sorted eigenvalues and eigenvectors.
-    """
-    params = dict(A=A_constant, B=B_constant, C=C_constant, V=potential)
-    # Calculate the wave functions in the system.
-    ham_mat = syst.hamiltonian_submatrix(sparse=True, params=params)
-    return sorted_eigs(sla.eigsh(ham_mat.tocsc(), k=2, sigma=0))
 
-def displayPotential(syst):
-    """
-    Procedure to display the potential and energy levels of the system
-    :param syst: the system object.
-    :return:
-    """
-    evals, evecs = eigenstates(syst)
-    x_coordinates = np.linspace(0, lattices, lattices)
-    vpotential = vectorize(potential)
-
-    y_coordinates = vpotential(x_coordinates)
-    plt.figure()
-    plt.plot(x_coordinates, y_coordinates, label="$V(x)$")
-    E_1 = evals[0]
-    E_2 = evals[1]
-    plt.plot([0,100], [E_1, E_1], label="$E_1$")
-    plt.plot([0,100], [E_2, E_2], label="$E_2$")
-    plt.legend(loc="upper right")
-    plt.savefig("energies.png")  # With A = 0 we expect straight forward zeeman splitting
-
-def showWavefunction(syst):
-
-    """
-    Procedure to show the wave functions.
-    :param syst: the system object.
-    :return:
-    """
-
-    evals, evecs = eigenstates(syst)
-    plt.figure()
-    # print(evals) # Not sure why but eigenvalues and vectors are repeated
-
-    x_coords = np.linspace(0, total_length_au, lattices)
+    def gaussian(self, x, mu, sig):
+        """
+        Function to compute a gaussian pulse.
+        :param x: the coordinate value
+        :param mu: the centre of the gaussian
+        :param sig: the standard deviation
+        :return: the gaussian function values.
+        """
+        return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
 
 
-    psi1 = np.abs(evecs[0::2, 0])**2 + np.abs(evecs[1::2, 0])**2  # Two eigenvectors per eigenvalue
-    psi2 = np.abs(evecs[0::2, 2])**2 + np.abs(evecs[1::2, 2])**2
+    def potential(self, x):  # Infinite square well
+        """
+        Function to define the potential of the lead.
+        :param x: the position in the system.
+        :return: the potential energy.
+        """
+        if 0 <= x <= self.lattices / 2:
+            return 0.002 * self.gaussian(x, self.lattices / 4, self.lattices / 14)
+        elif self.lattices / 2 <= x <= self.lattices:
+            return 0
+        else:
+            return 999999999
 
-    plt.plot(x_coords, psi1, label="n=1")
-    plt.plot(x_coords, psi2, label="n=2")
 
-    plt.xlabel("x (au)")
-    plt.ylabel("$|\psi(x)|^2$")
-    plt.legend(loc="upper right")
-    plt.savefig("wavefunctions.png")  # With A = 0 we expect straight forward zeeman splitting
+    def eigenstates(self):
+        """
+        Function to compute the eigenstates of the system.
+        :param syst: the system object.
+        :return: the sorted eigenvalues and eigenvectors.
+        """
+        B_0_au = self.tesla_SI_to_au(self.B_0_SI)
+        b_sl_au = self.tesla_SI_to_au(self.b_sl_SI)  # in hbar/(e*(a_0)**2)
+        self.A_constant =  -self.g * self.mu_B * B_0_au * self.hbar / 2
+        self.B_constant = -self.g * self.mu_B * b_sl_au * self.hbar / 2
+        self.C_constant = self.hbar ** 2 / (2 * self.m)
+        params = dict(A=self.A_constant, B=self.B_constant, C=self.C_constant, V=self.potential)
+        # Calculate the wave functions in the system.
+        h = self.syst.hamiltonian_submatrix(params=params)
 
-    # Next add alternating voltage
+        eigenValues, eigenVectors = np.linalg.eig(h)
+
+        idx = eigenValues.argsort()
+        eigenValues = eigenValues[idx]
+        eigenVectors = eigenVectors[:, idx]
+
+        # print(eigenValues) # Eigenvalues are repeated
+        # For each eigenvalue for each spin we get two eigenvectors and for each position there are two possible spins
+        # so we have four eigenvectors for each position along the nanotube.
+        # print(np.abs(eigenVectors[0::2,1])**2 + np.abs(eigenVectors[1::2,1])**2 +
+        #       np.abs(eigenVectors[0::2,2])**2+ np.abs(eigenVectors[1::2,2])**2)
+
+        return eigenValues, eigenVectors
+
+    def displayPotential(self):
+        """
+        Procedure to display the potential and energy levels of the system
+        :param syst: the system object.
+        :return:
+        """
+        eigenValues, eigenVectors = self.eigenstates()
+        x_coordinates = np.linspace(0, self.lattices, self.lattices)
+        vpotential = vectorize(self.potential)
+
+        y_coordinates = vpotential(x_coordinates)
+        plt.figure()
+        plt.plot(x_coordinates, y_coordinates, label="$V(x)$")
+        E_1 = eigenValues[0]
+        E_2 = eigenValues[1]
+        E_3 = eigenValues[2]
+
+        print("The energies of the ground and excited states are {0} and {1}, respectively.".format(E_1, E_2))
+        plt.plot([0,100], [E_1, E_1], label="$E_1$")
+        plt.plot([0,100], [E_2, E_2], label="$E_2$")
+        plt.plot([0,100], [E_3, E_3], label="$E_3$", linestyle='dashed')
+
+        plt.legend(loc="upper right")
+        plt.savefig("./figures/energies.svg")  # With A = 0 we expect straight forward zeeman splitting
+
+    def showWavefunction(self):
+
+        """
+        Procedure to show the wave functions.
+        :param syst: the system object.
+        :return:
+        """
+
+        eigenValues, eigenVectors = self.eigenstates()
+        plt.figure()
+
+
+        x_coords = np.linspace(0, self.total_length_au, self.lattices)
+        psi1 = np.abs(eigenVectors[0::2,0])**2 + np.abs(eigenVectors[1::2,0])**2 +\
+               np.abs(eigenVectors[0::2,1])**2+ np.abs(eigenVectors[1::2, 1])**2
+        # print(np.sum(np.abs(eigenVectors[0::2,0])**2 + np.abs(eigenVectors[1::2,0])**2))
+        plt.plot(x_coords, psi1, label="n=1")
+
+        psi2 = np.abs(eigenVectors[0::2,2])**2 + np.abs(eigenVectors[1::2,2])**2 +\
+               np.abs(eigenVectors[0::2,3])**2+ np.abs(eigenVectors[1::2,3])**2
+        # print(np.sum(np.abs(eigenVectors[0::2,2])**2 + np.abs(eigenVectors[1::2,2])**2))
+
+        plt.plot(x_coords, psi2, label="n=2")
+
+
+        plt.xlabel("x (au)")
+        plt.ylabel("$|\psi(x)|^2$")
+        plt.legend(loc="upper right")
+        plt.savefig("./figures/wavefunctions.svg")  # With A = 0 we expect straight forward zeeman splitting
+
+        # Next add alternating voltage
 
 
 def main():
-    syst = make_system(length=lattices).finalized()
+    lattices = 100
 
-    kwant.plot(syst, file='shape.png');
-    displayPotential(syst)
-    # showWavefunction(syst, lattices)
+    system1 = System("(C * k_x**2 + V(x)) * identity(2) + A * sigma_x + B * x * sigma_y", lattices)
+    syst = system1.make_system()
+
+
+    system1.displayPotential()
+    system1.showWavefunction()
 
 if __name__ == '__main__':
     main()
