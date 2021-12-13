@@ -172,7 +172,8 @@ class System:
         plt.plot([0,100], [E_1, E_1], label="$E_1$")
         plt.plot([0,100], [E_2, E_2], label="$E_2$")
         plt.plot([0,100], [E_3, E_3], label="$E_3$", linestyle='dashed')
-
+        plt.xlabel("x (au)")
+        plt.ylabel("$E (H)$")
         plt.legend(loc="upper right")
         plt.savefig("./figures/energies.svg")  # With A = 0 we expect straight forward zeeman splitting
 
