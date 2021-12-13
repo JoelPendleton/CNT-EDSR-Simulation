@@ -179,7 +179,7 @@ class System:
     def showWavefunction(self):
 
         """
-        Procedure to show the wave functions.
+        Procedure to show the probability density function.
         :param syst: the system object.
         :return:
         """
@@ -204,7 +204,7 @@ class System:
         plt.xlabel("x (au)")
         plt.ylabel("$|\psi(x)|^2$")
         plt.legend(loc="upper right")
-        plt.savefig("./figures/wavefunctions.svg")  # With A = 0 we expect straight forward zeeman splitting
+        plt.savefig("./figures/pdf.svg")  # With A = 0 we expect straight forward zeeman splitting
 
         # Next add alternating voltage
 
