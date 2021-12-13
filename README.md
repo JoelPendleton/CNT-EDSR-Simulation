@@ -35,11 +35,11 @@ conda install tkwant -c conda-forge
 
 ## Example Plots
 
-Plot of the probability density function over space:
+* Plot of the probability density function over space:
 
 ![Wave functions](./figures/wavefunctions.svg)
 
-Plot of the eigenenergies: 
+* Plot of the eigenenergies: 
 
 ![Eigenenergies](./figures/energies.svg)
 
