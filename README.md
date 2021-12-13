@@ -6,4 +6,8 @@ Theory based on '_Coherent Single Electron Spin Control in a Slanting Zeeman Fie
 * https://kwant-project.org
 * https://tkwant.kwant-project.org
 
+## My Environment
+
+I recommend you use my docker environment: joelpendleton/cnt-edsr-simulation
+
 ![Wave functions](./figures/wavefunctions.svg)
