@@ -9,13 +9,14 @@ Theory based on '_Coherent Single Electron Spin Control in a Slanting Zeeman Fie
 ## My Development Environment
 **docker images: joelpendleton/cnt-edsr-simulation**   
 
-I recommend using my docker image by running the following
+I recommend using my docker image by running the following:
+
 ```
 docker pull joelpendleton/cnt-edsr-simulation
 docker start joelpendleton/cnt-edsr-simulation
 ```
 
-Alternatively, you can following the run the following installation commands
+Alternatively, you run the following installation commands:
 
 ### Linux and MacOS
 
