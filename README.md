@@ -37,11 +37,9 @@ conda install tkwant -c conda-forge
 
 ## Example Plots
 
-* Plot of the probability density function over space:
+* Animation of the probability density function as time increases 
 
-![Wave functions](./figures/pdf.svg)
+https://user-images.githubusercontent.com/11929366/149535321-635bcd71-e6c5-4bd5-aa7d-193fbba6de93.mp4
 
-* Plot of the eigenenergies: 
 
-![Eigenenergies](./figures/energies.svg)
 
