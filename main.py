@@ -12,9 +12,9 @@ class System:
         self.hbar_SI = 1.054571817e-34
         self.e_SI = 1.602176634e-19
         self.a_0_SI = 5.2917721090380e-11
-        self.total_length_SI =100 * self.a_0_SI
+        self.total_length_SI =7820e-9
         self.B_0_SI = 50e-3
-        self.b_sl_SI = 250e-3
+        self.b_sl_SI = 50e-3
         self.time = 0
 
         # Constants in a.u.
@@ -27,7 +27,7 @@ class System:
         self.mu_B_SI= 9.2740100783e-24
         self.total_length_au = self.total_length_SI / self.a_0_SI # Total distance of nanotube in terms of au
         self.lattices = lattices
-        self.lattice_size = self.total_length_au / self.lattices # The distance in atomic units spanned by a lattice point
+        self.lattice_size_au = self.total_length_au / self.lattices # The distance in atomic units spanned by a lattice point
         self.mu_B_au = self.e_au * self.hbar_au / (2 * self.m_au)
         self.a_0 = 1
         self.gaussian_height = 0.0014699721440278707
@@ -38,11 +38,9 @@ class System:
         self.pulse_frequency_au = 1/self.osc_time_au
         self.pulse_velocity = self.pulse_frequency_au * self.total_length_au # in au/s
         self.hamiltonian = hamiltonian
-        self.a_SI = 1.667 #nm
-        self.a_au = self.a_SI/0.0529177249 #au
 
 
-        self.template = kwant.continuum.discretize(hamiltonian)#, grid=self.a_a)
+        self.template = kwant.continuum.discretize(hamiltonian, grid=self.lattice_size_au)
         self.gaussian_mu = 0
         self.pulse_type = 1
 
@@ -79,6 +77,9 @@ class System:
     def au_to_m(self, au):
         return 5.2917721090380e-11 * au
 
+    def m_to_au(self, m):
+        return m / 5.2917721090380e-11
+
     def make_system(self):
         """
         Function to create the system
@@ -92,8 +93,9 @@ class System:
             :param site: the current site.
             :return: the a boolean saying whether the scattering site should be drawn
             """
+
             (x, ) = site.pos
-            return (0 <= x < self.lattices)#*self.a_au
+            return (0 <= x < self.total_length_au)
 
         self.syst = kwant.Builder()
 
@@ -125,6 +127,7 @@ class System:
         :return: the potential energy.
         """
         if -self.total_length_au/2 <= x <= self.total_length_au/2:
+
             if self.pulse_type == 1:
                 self.gaussian_mu = -self.total_length_au/2
                 self.pulse_velocity = self.pulse_frequency_au * self.total_length_au  # in au/s
@@ -147,7 +150,7 @@ class System:
         :param x:
         :return: potential after conversion to au
         """
-        return self.potential(x * self.lattice_size - self.total_length_au/2) # Kwant uses lattice points so need scaling
+        return self.potential(x - self.total_length_au/2) # Kwant uses lattice points so need scaling
 
     def eigenstates(self):
         """
@@ -156,11 +159,11 @@ class System:
         :return: the sorted eigenvalues and eigenvectors.
         """
         self.B_0_au = self.tesla_SI_to_au(self.B_0_SI)
-        self.b_sl_au = self.tesla_SI_to_au(self.b_sl_SI)  # in hbar/(e*(a_0)**2)
+        self.b_sl_au = self.tesla_SI_to_au(self.b_sl_SI) * (1/self.m_to_au(1)) # need to scale length unit too
         self.A_constant =  -self.g * self.mu_B_au * self.B_0_au * self.hbar_au / 2
         self.B_constant = -self.g * self.mu_B_au * self.b_sl_au * self.hbar_au / 2
         self.C_constant = self.hbar_au ** 2 / (2 * self.m_au)
-        params = dict(A=self.A_constant, B=self.B_constant, C=self.C_constant, V=self.kwant_potential)
+        params = dict(C=self.C_constant, V=self.kwant_potential, A=self.A_constant, B=self.B_constant)
         # Calculate the wave functions in the system.
         hamiltonian = self.syst.hamiltonian_submatrix(params=params)
         eigenValues, eigenVectors = np.linalg.eig(hamiltonian)
@@ -202,7 +205,7 @@ class System:
         # plt.xlabel("$x (au$)")
         plt.ylabel("$E (eV)$")
         plt.legend(loc="upper right")
-        plt.savefig("./figures/energies.eps")  # With A = 0 we expect straight forward zeeman splitting
+        plt.savefig("./figures/energies.svg")  # With A = 0 we expect straight forward zeeman splitting
         plt.close(fig)
         print("Plot of eigenenergies saved.")
 
@@ -237,13 +240,13 @@ class System:
             plt.xlabel("z ($a_0$)")
             plt.ylabel("$|\psi(z)|^2$")
             plt.legend(loc="upper right")
-            plt.savefig("./figures/initial-pdfs.eps".format(self.time))  # With A = 0 we expect straight forward zeeman splitting
+            plt.savefig("./figures/initial-pdfs.svg".format(self.time))  # With A = 0 we expect straight forward zeeman splitting
             plt.close(fig)
             print("Plot of wave functions saved at at t={}s".format('{:g}'.format(float('{:.{p}g}'.format(self.time, p=2)))))
             return True
 
     def rabi_oscillations(self):
-
+        self.pulse_type = 2
         self.sigma_y = np.array([[0, -1j],
                                  [1j, 0]])
         self.sigma_z = np.array([[1, 0],
@@ -257,13 +260,10 @@ class System:
         # Compte w_12 for B_0 eigenvalues
         # self.pulse_frequency_au = (w_12) / (2 * np.pi)
 
-        x = np.linspace(0, self.lattices, self.lattices)
         x_au = np.linspace(-self.total_length_au/2, self.total_length_au/2, self.lattices)
-        x_SI = np.linspace(-self.total_length_SI/2, self.total_length_SI/2, self.lattices)
 
-        eff_B_field_SI = self.b_sl_SI * x_SI
-        eff_B_field_au = self.tesla_SI_to_au(eff_B_field_SI)
-
+        eff_B_field_au = self.tesla_SI_to_au(self.b_sl_SI)*(1/self.m_to_au(1)) * x_au
+        eff_B_field_SI = self.tesla_au_to_SI(eff_B_field_au)
 
         psi1 = eigenVectors[:, 0]
         psi2 = eigenVectors[:, 1]
@@ -279,9 +279,8 @@ class System:
         # sigma_z_density = kwant.operator.Density(self.syst, self.sigma_y, sum=True).__call__
         # sigma_z_overlap = sigma_z_density(psi2, psi1)
 
-        time_steps = 200
-        total_osc_time = 4/self.pulse_frequency_au
-        times_SI = np.linspace(0, total_osc_time, num=time_steps)
+        time_steps = 25
+        total_osc_time = 1/self.pulse_frequency_au
 
         times_au = np.linspace(0, total_osc_time, num=time_steps)
         B_SI = np.empty((time_steps,), dtype=np.double)
@@ -289,44 +288,40 @@ class System:
 
         # potential_overlap_term_1 = -(1/2)* self.g * self.mu_B_au * self.B_0_au * sigma_z_overlap
         probabilities = []
-        complex_factor = np.exp(1j * w_12 * times_au / self.hbar_au)
+
         for i in range(time_steps):
 
             self.time = times_au[i]
             eigenValues, eigenVectors = self.eigenstates()
-            psi1 = eigenVectors[:, 0]
+            psi_evolved = eigenVectors[:, 0]
 
-            psi1_up, psi1_down = psi1[::2], psi1[1::2]
-            density_1 = np.abs(psi1_up) ** 2 + np.abs(psi1_down) ** 2
-            average_eff_B_field_SI = np.trapz(density_1*eff_B_field_SI, x=x_SI)
+            psi_evolved_up, psi_evolved_down = psi_evolved[::2], psi_evolved[1::2]
+            density_1 = np.abs(psi_evolved_up) ** 2 + np.abs(psi_evolved_down) ** 2
             average_eff_B_field_au = np.trapz(density_1*eff_B_field_au, x=x_au)
-            B_SI[i] = average_eff_B_field_SI
+
             B_au[i] = average_eff_B_field_au
 
-            # c_2_term_1 =  (-1j/self.hbar_au)*np.trapz(times_au[0:i], potential_overlap_term_1*complex_factor[0:i])
 
-            c_2_term_2 =  (-1j/self.hbar_au)*np.trapz(times_au[0:i], -(1/2)* self.g * self.mu_B_au * B_au[0:i] * sigma_y_overlap * complex_factor[0:i])
-            c_2 = c_2_term_2
-            probabilities.append(np.abs(c_2)**2)
+            probabilities.append(np.abs(np.conjugate(psi2).T @ psi_evolved)**2)
 
         # Plot magnetic field
         fig1 = plt.figure()
-        plt.plot(times_SI, self.tesla_au_to_SI(B_au))
+        plt.plot(self.time_au_to_SI(times_au), self.tesla_au_to_SI(B_au))
         plt.ylabel(r'$\bar{B}(t)$ (T)')
         plt.xlabel("$t$ (s)")
         # plt.title("Plot of Average Magnetic Field Varying with Time")
-        plt.savefig("./figures/B-average-v-time.eps")
+        plt.savefig("./figures/B-average-v-time.svg")
         plt.close(fig1)
         print("Magnetic field vs time plotted.")
 
 
-        # Plot magnetic field
+        # # Plot magnetic field
         fig2 = plt.figure()
-        plt.plot(times_SI, probabilities)
+        plt.plot(self.time_au_to_SI(times_au), probabilities)
         plt.ylabel(r'$|c_2|^2$')
         plt.xlabel("$t$ (s)")
         # plt.title("Plot of Average Magnetic Field Varying with Time")
-        plt.savefig("./figures/prob-v-time.eps")
+        plt.savefig("./figures/prob-v-time.svg")
         plt.close(fig2)
         print("prob vs time plotted.")
 
@@ -383,7 +378,7 @@ class System:
             line[2].set_data(x,  self.hartree_to_ev(y3))
             ax1.legend(loc="upper right")
             ax2.legend(loc="upper right")
-            plt.savefig("./figures/temp/animation-{}.eps".format('{:g}'.format(float('{:.{p}g}'.format(self.time_au_to_SI(self.time), p=2)))))
+            plt.savefig("./figures/temp/animation-{}.svg".format('{:g}'.format(float('{:.{p}g}'.format(self.time_au_to_SI(self.time), p=2)))))
 
             return line
 
@@ -408,20 +403,20 @@ class System:
 def main():
     lattices = 100
 
-    system1 = System("(C * k_x**2 + V(x)) * identity(2) + A * sigma_x + B * x * sigma_y", lattices)
+    system1 = System("(C * k_x**2 + V(x))* identity(2) + A * sigma_x + B  * x * sigma_y", lattices)
+    #+
     system1.make_system()
     system1.time = 0
     ### Phase 1 ###
-    # system1.show_energies()
+    system1.show_energies()
     system1.show_wave_function()
 
-    system1.pulse_type = 2
 
     ### Phase 2 ###
-    system1.animate_wave_function()
+    # system1.animate_wave_function()
 
     ### Phase 3 ###
-    # system1.rabi_oscillations()
+    system1.rabi_oscillations()
 
 if __name__ == '__main__':
     main()
