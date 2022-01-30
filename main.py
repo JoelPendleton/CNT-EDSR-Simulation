@@ -4,7 +4,16 @@ import matplotlib.pyplot as plt
 import kwant
 from numpy import vectorize
 from matplotlib import animation
+from tkwant import onebody
 
+from csv import writer
+def append_list_as_row(file_name, list_of_elem):
+    # Open file in append mode
+    with open(file_name, 'a+', newline='') as write_obj:
+        # Create a writer object from csv module
+        csv_writer = writer(write_obj)
+        # Add contents of list as last row in the csv file
+        csv_writer.writerow(list_of_elem)
 
 class System:
     def __init__(self, hamiltonian, lattices):
@@ -12,9 +21,9 @@ class System:
         self.hbar_SI = 1.054571817e-34
         self.e_SI = 1.602176634e-19
         self.a_0_SI = 5.2917721090380e-11
-        self.total_length_SI =7820e-9
-        self.B_0_SI = 50e-3
-        self.b_sl_SI = 50e-3
+        self.total_length_SI =1.81e-6
+        self.B_0_SI = 0#250e-3
+        self.b_sl_SI = 0#50e-3
         self.time = 0
 
         # Constants in a.u.
@@ -28,18 +37,18 @@ class System:
         self.total_length_au = self.total_length_SI / self.a_0_SI # Total distance of nanotube in terms of au
         self.lattices = lattices
         self.lattice_size_au = self.total_length_au / self.lattices # The distance in atomic units spanned by a lattice point
-        self.mu_B_au = self.e_au * self.hbar_au / (2 * self.m_au)
+        self.mu_B_au = .5
         self.a_0 = 1
-        self.gaussian_height = 0.0014699721440278707
+        self.gaussian_height = 0.002
 
-        self.pulse_frequency_SI = 1e9 # in Hz
+        self.pulse_frequency_SI = 1e10 # in Hz
         self.osc_time_SI = (1/self.pulse_frequency_SI)
         self.osc_time_au = (1/ (self.osc_time_SI/2.419e-17))
         self.pulse_frequency_au = 1/self.osc_time_au
         self.pulse_velocity = self.pulse_frequency_au * self.total_length_au # in au/s
         self.hamiltonian = hamiltonian
 
-
+        # self.omega_SI = 1e12
         self.template = kwant.continuum.discretize(hamiltonian, grid=self.lattice_size_au)
         self.gaussian_mu = 0
         self.pulse_type = 1
@@ -67,9 +76,9 @@ class System:
         return time / 4.1341373336493e16
 
     def hartree_to_ev(self,hartree):
-        return hartree * 27.2114
+        return hartree * 2.72114e1
     def ev_to_hartree(self,ev):
-        return ev / 27.2114
+        return ev * 3.67493e-2
 
     def au_to_nm(self, au):
         return 0.0529177249 * au
@@ -80,12 +89,21 @@ class System:
     def m_to_au(self, m):
         return m / 5.2917721090380e-11
 
+    def hz_to_au(self, hz):
+
+        return hz * 1.51983e-16
+
+    def au_to_hz(self, au):
+
+        return au * 6.57968e15
+
     def make_system(self):
         """
         Function to create the system
         :param length: the length of the nanotube
         :return: the system object
         """
+
         # We need to have 1d since the hamiltonian is 1d otherwise it can't be applied
         def shape(site):
             """
@@ -95,12 +113,26 @@ class System:
             """
 
             (x, ) = site.pos
-            return (0 <= x < self.total_length_au)
+            return (-self.total_length_au/2 <= x  < self.total_length_au/2)
+
+
+
+        # def lead_shape(site):
+        #     (x, ) = site.pos
+        #     return (0 <= x < 40 * self.lattice_size_au)
+
 
         self.syst = kwant.Builder()
 
         #Add the nanotube to the system
         self.syst.fill(self.template, shape, (0, ))
+        #
+        #
+        # lead = kwant.Builder(kwant.TranslationalSymmetry([-self.lattice_size_au, ]))
+        # lead.fill(self.template, lead_shape, (-self.total_length_au/2, ))
+        #
+        # self.syst.attach_lead(lead)
+        # self.syst.attach_lead(lead.reversed())
 
         kwant.plot(self.syst, file='./figures/shape.png')
         self.syst = self.syst.finalized()
@@ -109,16 +141,16 @@ class System:
 
 
 
-    def gaussian(self, x, sig):
-        """
-        Function to compute a gaussian pulse.
-        :param x: the coordinate value
-        :param mu: the centre of the gaussian
-        :param sig: the standard deviation
-        :return: the gaussian function values.
-        """
-
-        return np.exp(-np.power(x - self.gaussian_mu - self.pulse_velocity * self.time , 2.) / (2 * np.power(sig, 2.)))
+    # def gaussian(self, x, sig):
+    #     """
+    #     Function to compute a gaussian pulse.
+    #     :param x: the coordinate value
+    #     :param mu: the centre of the gaussian
+    #     :param sig: the standard deviation
+    #     :return: the gaussian function values.
+    #     """
+    #
+    #     return np.exp(-np.power(x - self.gaussian_mu - self.pulse_velocity * self.time , 2.) / (2 * np.power(sig, 2.)))
 
     def potential(self, x):  # Infinite square well
         """
@@ -126,31 +158,30 @@ class System:
         :param x: the position in the system.
         :return: the potential energy.
         """
-        if -self.total_length_au/2 <= x <= self.total_length_au/2:
-
-            if self.pulse_type == 1:
-                self.gaussian_mu = -self.total_length_au/2
-                self.pulse_velocity = self.pulse_frequency_au * self.total_length_au  # in au/s
-                return self.gaussian_height * self.gaussian(x, self.total_length_au / 14)
-            elif self.pulse_type == 2:
-                self.gaussian_mu = -self.total_length_au/4
-                self.pulse_velocity = 0
-                return self.gaussian_height * (np.cos(2 * np.pi * self.pulse_frequency_au * self.time) **2) * self.gaussian(x, self.total_length_au / 14)
-            else:
-
-                return  0
-
+        self.omega = 1e9
+        if  - self.total_length_au/2 < x <= self.total_length_au/2:
+            total_potential = .5 * ((x * (self.hz_to_au(self.omega))) ** 2)
         else:
-            return 999999999
+            total_potential = 99999999999999
 
-    def kwant_potential(self, x):
-        """
-        Potential that kwant uses. It inputs lattice points coord. so we need to convert to au to use our
-        other functions
-        :param x:
-        :return: potential after conversion to au
-        """
-        return self.potential(x - self.total_length_au/2) # Kwant uses lattice points so need scaling
+
+
+        # if self.pulse_type == 1:
+        #     self.gaussian_mu = -self.total_length_au/2
+        #     self.pulse_velocity += self.pulse_frequency_au * self.total_length_au  # in au/s
+        #     total_potential = self.gaussian_height * self.gaussian(x, self.total_length_au / 14)
+        # elif self.pulse_type == 2:
+        #     self.pulse_velocity = 0
+        #     total_potential += self.gaussian_height * np.cos(2 * np.pi * self.pulse_frequency_au * self.time) * x / self.total_length_au
+        # else:
+        #
+        #     total_potential +=  0
+
+
+        return total_potential
+
+
+
 
     def eigenstates(self):
         """
@@ -160,10 +191,14 @@ class System:
         """
         self.B_0_au = self.tesla_SI_to_au(self.B_0_SI)
         self.b_sl_au = self.tesla_SI_to_au(self.b_sl_SI) * (1/self.m_to_au(1)) # need to scale length unit too
+
         self.A_constant =  -self.g * self.mu_B_au * self.B_0_au * self.hbar_au / 2
         self.B_constant = -self.g * self.mu_B_au * self.b_sl_au * self.hbar_au / 2
-        self.C_constant = self.hbar_au ** 2 / (2 * self.m_au)
-        params = dict(C=self.C_constant, V=self.kwant_potential, A=self.A_constant, B=self.B_constant)
+        self.C_constant = self.hbar_au **2 / (2 * self.m_au)
+
+        params = dict(C=self.C_constant, V=self.potential, A=self.A_constant, B=self.B_constant)
+        # params = dict(C=self.C_constant, V=self.potential)#, A=self.A_constant, B=self.B_constant)
+
         # Calculate the wave functions in the system.
         hamiltonian = self.syst.hamiltonian_submatrix(params=params)
         eigenValues, eigenVectors = np.linalg.eig(hamiltonian)
@@ -188,26 +223,55 @@ class System:
         x_coordinates = np.linspace(-self.total_length_au/2, self.total_length_au/2, self.lattices)
 
         fig = plt.figure()
-        E_1 = self.hartree_to_ev(np.real(eigenValues[0]))
-        E_2 = self.hartree_to_ev(np.real(eigenValues[1]))
-        E_3 = self.hartree_to_ev(np.real(eigenValues[2]))
-        E_4 = self.hartree_to_ev(np.real(eigenValues[3]))
-        E_5 = self.hartree_to_ev(np.real(eigenValues[4]))
+        # E_1 = self.hartree_to_ev(np.real(eigenValues[0]))
+        # E_2 = self.hartree_to_ev(np.real(eigenValues[1]))
+        # E_3 = self.hartree_to_ev(np.real(eigenValues[2]))
+        # E_4 = self.hartree_to_ev(np.real(eigenValues[3]))
+        # E_5 = self.hartree_to_ev(np.real(eigenValues[4]))
+        # E_6 = self.hartree_to_ev(np.real(eigenValues[5]))
+        # E_7 = self.hartree_to_ev(np.real(eigenValues[6]))
 
+
+        # print("First two energy states are", E_1, E_2)
         # print("The energies of the ground and excited states are {0} and {1}, respectively.".format(E_1, E_2))
-        plt.plot([0, np.max(x_coordinates)], [E_1, E_1], label="$E_1$")
-        plt.plot([0, np.max(x_coordinates)], [E_2, E_2], label="$E_2$")
-        plt.plot([0, np.max(x_coordinates)], [E_3, E_3], label="$E_3$", linestyle='dashed')
-        plt.plot([0, np.max(x_coordinates)], [E_4, E_4], label="$E_4$", linestyle='dashed')
-        plt.plot([0, np.max(x_coordinates)], [E_5, E_5], label="$E_5$", linestyle='dashed')
-        ax = plt.gca()
-        ax.axes.xaxis.set_visible(False)
-        # plt.xlabel("$x (au$)")
+        # plt.plot([-np.max(x_coordinates), np.max(x_coordinates)], [E_1, E_1], label="$E_1$")
+        # plt.plot([-np.max(x_coordinates), np.max(x_coordinates)], [E_2, E_2], label="$E_2$")
+        # plt.plot([-np.max(x_coordinates), np.max(x_coordinates)], [E_3, E_3], label="$E_3$")
+        # plt.plot([-np.max(x_coordinates), np.max(x_coordinates)], [E_4, E_4], label="$E_4$")
+        # plt.plot([-np.max(x_coordinates), np.max(x_coordinates)], [E_5, E_5], label="$E_5$")
+        # plt.plot([-np.max(x_coordinates), np.max(x_coordinates)], [E_6, E_6], label="$E_6$")
+        # plt.plot([-np.max(x_coordinates), np.max(x_coordinates)], [eigenValues, eigenValues])
+
+        energies = np.real(eigenValues)[::2]
+        energies = energies[0:40]
+        x = np.linspace(0,len(energies), len(energies))
+        y = energies
+
+        m, b = np.polyfit(x, y, 1)
+        predicted_omega_1 = (m * self.e_SI) / self.hbar_SI
+        predicted_omega_2  = (2 * b  * self.e_SI) / self.hbar_SI
+        difference_in_omega_1 = self.omega - predicted_omega_1
+        # print("From  m, omega equals ", predicted_omega_1)
+        # print("From b, omega equals ", predicted_omega_2)
+        # print("The actual omega used was", self.omega)
+        # print("Difference between actual omega and simulated omega (from m) is", difference_in_omega_1)
+        row_contents = [self.lattices, predicted_omega_1, predicted_omega_2, difference_in_omega_1]
+        # Append a list as new line to an old csv file
+        append_list_as_row('simulation-accuracy.csv', row_contents)
+        plt.plot(x, y, 'o')
+        plt.plot(x, m * x + b)
+
+        # plt.plot(x_coordinates, vpotential(x_coordinates), label="V(x)")
+
+        # ax = plt.gca()
+        # ax.axes.xaxis.set_visible(False)
+        plt.xlabel("$n$")
         plt.ylabel("$E (eV)$")
-        plt.legend(loc="upper right")
-        plt.savefig("./figures/energies.svg")  # With A = 0 we expect straight forward zeeman splitting
+        # plt.legend(loc="upper right")
+        plt.savefig("./figures/energies-{}.svg".format(self.lattices))  # With A = 0 we expect straight forward zeeman splitting
         plt.close(fig)
         print("Plot of eigenenergies saved.")
+        return E_1, E_2
 
     def show_wave_function(self, animate=False):
 
@@ -219,14 +283,14 @@ class System:
 
         eigenValues, eigenVectors = self.eigenstates()
 
-        x_coords = np.linspace(-self.total_length_au/2, self.total_length_au/2, self.lattices)
+        x_coords = np.linspace(-self.total_length_SI/2, self.total_length_SI/2, self.lattices)
 
         # https://kwant-project.org/doc/dev/tutorial/operators - this explains the output of the eigenvectors.
         psi1 = eigenVectors[:, 0]
         psi1_up, psi1_down = psi1[::2], psi1[1::2]
         # even indices give the spin up and odd indices give the spin down states
         density_1 = np.abs(psi1_up) ** 2 + np.abs(psi1_down) ** 2
-        psi2 = eigenVectors[:, 1]
+        psi2 = eigenVectors[:,2]
         psi2_up, psi2_down = psi2[::2], psi2[1::2]
         density_2 = np.abs(psi2_up) ** 2 + np.abs(psi2_down) ** 2
         if animate:
@@ -234,8 +298,8 @@ class System:
 
         else:
             fig = plt.figure()
-            plt.plot((x_coords), density_1, label="$\psi_{G_{- }}$")
-            plt.plot((x_coords), density_2, label="$\psi_{G_{+ }}$")
+            plt.plot(x_coords, density_1, label="$\psi_{G_{- }}$")
+            plt.plot(x_coords, density_2, label="$\psi_{G_{+ }}$")
 
             plt.xlabel("z ($a_0$)")
             plt.ylabel("$|\psi(z)|^2$")
@@ -247,20 +311,12 @@ class System:
 
     def rabi_oscillations(self):
         self.pulse_type = 2
-        self.sigma_y = np.array([[0, -1j],
-                                 [1j, 0]])
-        self.sigma_z = np.array([[1, 0],
-                                 [0, -1]])
-        self.sigma_x = np.array([[0, 1],
-                                 [1, 0]])
-        eigenValues, eigenVectors = self.eigenstates()
-        E_1 = np.real(eigenValues[0])
-        E_2 = np.real(eigenValues[1])
-        w_12 = (E_2 - E_1)/self.hbar_au
-        # Compte w_12 for B_0 eigenvalues
-        # self.pulse_frequency_au = (w_12) / (2 * np.pi)
 
-        x_au = np.linspace(-self.total_length_au/2, self.total_length_au/2, self.lattices)
+        eigenValues, eigenVectors = self.eigenstates()
+        self.pulse_frequency_au =   (self.g * self.B_0_au * self.mu_B_au) / (2 * np.pi * self.hbar_au) # in Hz
+        # self.pulse_frequency_au = (1000 * np.pi * self.g * self.B_0_au * self.mu_B_au) / self.hbar_au # in Hz
+
+        x_au = np.linspace(-self.total_length_au/20, self.total_length_au/20, self.lattices/10)
 
         eff_B_field_au = self.tesla_SI_to_au(self.b_sl_SI)*(1/self.m_to_au(1)) * x_au
         eff_B_field_SI = self.tesla_au_to_SI(eff_B_field_au)
@@ -270,27 +326,15 @@ class System:
 
         # https://kwant-project.org/doc/dev/tutorial/operators - this explains the output of the eigenvectors.
 
-        sigma_y_density = kwant.operator.Density(self.syst, self.sigma_y, sum=True).__call__
-        sigma_y_overlap = sigma_y_density(psi2, psi1)
-
-        # sigma_x_density = kwant.operator.Density(self.syst, self.sigma_x, sum=True).__call__
-        # sigma_x_overlap = sigma_x_density(psi2, psi1)
-
-        # sigma_z_density = kwant.operator.Density(self.syst, self.sigma_y, sum=True).__call__
-        # sigma_z_overlap = sigma_z_density(psi2, psi1)
-
-        time_steps = 25
-        total_osc_time = 1/self.pulse_frequency_au
+        time_steps = 20
+        total_osc_time = 2/ self.pulse_frequency_au
 
         times_au = np.linspace(0, total_osc_time, num=time_steps)
-        B_SI = np.empty((time_steps,), dtype=np.double)
         B_au = np.empty((time_steps,), dtype=np.double)
 
-        # potential_overlap_term_1 = -(1/2)* self.g * self.mu_B_au * self.B_0_au * sigma_z_overlap
         probabilities = []
 
         for i in range(time_steps):
-
             self.time = times_au[i]
             eigenValues, eigenVectors = self.eigenstates()
             psi_evolved = eigenVectors[:, 0]
@@ -298,12 +342,12 @@ class System:
             psi_evolved_up, psi_evolved_down = psi_evolved[::2], psi_evolved[1::2]
             density_1 = np.abs(psi_evolved_up) ** 2 + np.abs(psi_evolved_down) ** 2
             average_eff_B_field_au = np.trapz(density_1*eff_B_field_au, x=x_au)
-
             B_au[i] = average_eff_B_field_au
+            inside_term = np.conjugate(psi2).T @ psi_evolved
+            probabilities.append(np.abs(inside_term)**2)
 
-
-            probabilities.append(np.abs(np.conjugate(psi2).T @ psi_evolved)**2)
-
+        print("Probabilites are:", probabilities)
+        print("Magnetic fields are:", B_au)
         # Plot magnetic field
         fig1 = plt.figure()
         plt.plot(self.time_au_to_SI(times_au), self.tesla_au_to_SI(B_au))
@@ -401,22 +445,32 @@ class System:
         print("Animation of wave functions saved.")
 
 def main():
-    lattices = 100
 
-    system1 = System("(C * k_x**2 + V(x))* identity(2) + A * sigma_x + B  * x * sigma_y", lattices)
-    #+
-    system1.make_system()
-    system1.time = 0
+    # system0 = System("(C * k_x**2 + V(x))* identity(2) + A * sigma_y", lattices)
+    # system0.make_system()
+    # system0.time = 0
+    # system0_energies = system0.show_energies()
     ### Phase 1 ###
-    system1.show_energies()
-    system1.show_wave_function()
+    # system1 = System("(C * k_x**2 + V(x))* identity(2) ", lattices)
+    for i in range(1,10):
+        lattices = 10 ** i
+        print("Testing simulation accuracy of", lattices, "lattice points.")
+        system1 = System("(C * k_x**2 + V(x))* identity(2) + A * sigma_x + B  * x * sigma_y", lattices)
+        system1.make_system()
+        system1.time = 0
+        system1.pulse_type = 0
+        ### Phase 1 ###
+        system1.show_energies()
+    # system1.show_wave_function()
 
 
     ### Phase 2 ###
     # system1.animate_wave_function()
+    # system1.pulse_frequency_au = np.abs((system0_energies[1] - system0_energies[0])) / system0.hbar_au
+    # print(system1.pulse_frequency_au)
 
     ### Phase 3 ###
-    system1.rabi_oscillations()
+    # system1.rabi_oscillations()
 
 if __name__ == '__main__':
     main()
