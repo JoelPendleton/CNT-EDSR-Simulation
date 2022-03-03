@@ -3,14 +3,26 @@ import matplotlib.pyplot as plt
 
 x_coords = list(range(0, 182))
 
-file_name = "simulation-0-y"
 
+
+file_name = "simulation-5-x"
+# angle = 5
+# def return_indices(y):
+#     y_index = y * np.cos(np.radians(angle))
+#     x_index = y * np.sin(np.radians(angle))
+#
+#     return  x_index, y_index
 # naming convention = simulation-[degrees CNT rotated clockwise]-[direction of external field]
 
 f = np.load("./Simulation-16-02-22/{}.out/B_eff000000.npy".format(file_name))
 
-
+y_indices = np.arange(8,190,1)
+# print(return_indices(y_indices))
 # Effective magnetic field vectors across the wire
+
+# For each y need to add on some x-shift
+
+
 B_x = f[0,14:19,8:190,49:54]
 B_y = f[1,14:19,8:190,49:54]
 B_z = f[2,14:19,8:190,49:54]
