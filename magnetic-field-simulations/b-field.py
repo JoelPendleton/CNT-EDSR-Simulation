@@ -5,7 +5,7 @@ x_coords = list(range(0, 182))
 
 
 
-file_name = "simulation-5-x"
+file_name = "simulation-0-y"
 # angle = 5
 # def return_indices(y):
 #     y_index = y * np.cos(np.radians(angle))
