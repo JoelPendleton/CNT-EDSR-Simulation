@@ -1,20 +1,20 @@
 // Cell size
-cx := 1e-9
+cx := 5e-9
 cy := 66e-10
 
-cz := 1e-9
+cz := 5e-9
 magnet_height := 100e-9
 magnet_width := 500e-9
 magnet_thickness := 50e-9
 
-nanotube_width := 4e-9
+nanotube_width := 5e-9
 nanotube_height := 1820e-9
 
 x_displacement := 500e-9
 y_displacement := 380e-9 //displacements are to shapes centres
 z_displacement := magnet_thickness + 100e-9 + nanotube_height // nanotube is 100nm above magnets
 
-SetGridsize(2000,276,200)
+SetGridsize(1500,276,200)
 SetCellsize(cx,cy,cz)
 
 
