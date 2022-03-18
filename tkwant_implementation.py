@@ -160,7 +160,6 @@ class System:
 
     def parabolic_potential(self):
         self.total_length_SI = 0.66e-6
-
         self.z_SI = np.linspace(-self.total_length_SI / 2, self.total_length_SI / 2, self.number_of_lattices)
         self.B_0_SI = 5e-3  # Upon using > 250e-3 the two wavefunctions represent the n=1 and n=2 states
         self.E_sl_ev = 1e-6
@@ -171,8 +170,8 @@ class System:
 
         self.E_sl_au = self.ev_to_hartree(self.E_sl_ev)
         self.b_sl_au = self.E_sl_au / (
-                self.g * self.mu_B_au * self.confinement_length_au)  # slanted magnetic field value computed from E_sl
-        self.omega_0 = self.hbar_au / (self.m_au * (self.confinement_length_au) ** 2)
+                self.g * self.mu_B_au * self.total_length_au)  # slanted magnetic field value computed from E_sl
+        self.omega_0 = self.ev_to_hartree(1e-3)
         self.eV_0_au = self.ev_to_hartree(10e-6)  # the value in a.u. of eV_0.
 
         print("b_sl is", self.tesla_to_au(self.b_sl_au) / self.au_to_m(1), "T.")
@@ -191,7 +190,7 @@ class System:
             total_potential = 0  # define zero for the potential inside the scattering region.
             # outside the potential will be infinity
         elif self.potential_type == 1:  # for a parabolic potential
-            total_potential = .5 * (
+            total_potential = .5 * self.m_au *(
                     (z * self.omega_0) ** 2)  # define a parabolic potential inside the scattering region.
         if self.pertubation_type == "cos":
             self.pertubation = self.cosine_v_ac
@@ -355,9 +354,11 @@ class System:
         fig = plt.figure()
 
         energies = self.hartree_to_ev(np.real(self.initial_eigenvalues))
-        y = energies
-        print("E_1 is", y[0], "eV.")
-        print("E_2 is", y[1], "eV.")
+        y = energies[0:100:2]
+
+
+
+
 
         # E_1_actual = (1)**2 * (np.pi)**2 * self.hbar_au**2 / (2 * self.m_au * self.total_length_au**2)
         # E_2_actual = (2)**2 * (np.pi)**2 * self.hbar_au**2 / (2 * self.m_au * self.total_length_au**2)
@@ -384,14 +385,41 @@ class System:
         # plt.plot(x, a * x**2 + b*x + c, '--')
 
         # Plot the energies of the different levels.
-        plt.plot([0, 1], [y[0], y[0]], label=r"$G_-$")
-        plt.plot([0, 1], [y[1], y[1]], label=r"$G_+$")
-        plt.plot([0, 1], [y[2], y[2]], label=r"$E_-$")
-        plt.plot([0, 1], [y[3], y[3]], label=r"$E_+$")
-        plt.legend(loc="best")
-        plt.ylabel("$E$ (a.u.)")
+        # plt.plot([0, 1], [y[0], y[0]], label=r"$G_-$")
+        # plt.plot([0, 1], [y[1], y[1]], label=r"$G_+$")
+        # plt.plot([0, 1], [y[2], y[2]], label=r"$E_-$")
+        # plt.plot([0, 1], [y[3], y[3]], label=r"$E_+$")
 
-        plt.savefig("/content/drive/My Drive/energies.svg")  # With A = 0 we expect straight forward zeeman splitting
+        if self.potential_type == 0:
+            x = np.array(list(range(1, 100 + 1)))
+            a, b, c = np.polyfit(x, y, 2)
+            y_best_fit = (x ** 2) * a + x * b + c
+            data = {
+                "a": a,
+                "b": b,
+                "c": c
+            }
+        else:
+            x = np.array(list(range(0, 49 + 1)))
+            a, b = np.polyfit(x, y, 1)
+            y_best_fit = x * a + b
+            data = {
+                "a": a,
+                "b": b
+            }
+        json_string = json.dumps(data)
+
+        with open('./energies-{0}-{1}.json'.format(self.potential_text, self.number_of_lattices), 'w') as outfile:
+            outfile.write(json_string)
+
+        plt.plot(x, y, '.', label="Eigenenergies")
+        plt.plot(x,y_best_fit, '--', label="Line of Best Fit")
+
+        plt.legend(loc="best")
+        plt.xlabel("$n$")
+        plt.ylabel("$E$ (eV)")
+
+        plt.savefig("./energies-{0}-{1}.eps".format(self.potential_text, self.number_of_lattices))  # With A = 0 we expect straight forward zeeman splitting
         plt.close(fig)
         print("Plot of eigenenergies at t=0 saved.")
         return True
@@ -686,22 +714,27 @@ class System:
 
 
 def main():
-    lattices = 100  # number of lattice points
+    lattices = [100,200,300,400,500]
+    for lattice_num in lattices:
+        print(lattice_num)
+        potential = 1  # infinite square-well potential
+        # magnetic_field_file = "simulation-0-x"
+        # system = System("((A * k_z**2) + V(z, time)) * identity(2) + B(z) * sigma_z + C(z) * sigma_x + D(z) * sigma_x",
+        #                 pertubation_type="cos", number_of_lattices=lattices,
+        #                 potential_type=potential)  # , magnetic_fields=magnetic_field_file) # call system objecy
 
-    potential = 0  # infinite square-well potential
-    # magnetic_field_file = "simulation-0-x"
-    system = System("((A * k_z**2) + V(z, time)) * identity(2) + B(z) * sigma_z + C(z) * sigma_x + D(z) * sigma_x",
-                    pertubation_type="cos", number_of_lattices=lattices,
-                    potential_type=potential)  # , magnetic_fields=magnetic_field_file) # call system objecy
-    system.make_system()
+        system = System("((A * k_z**2) + V(z, time)) * identity(2) + B(z) * sigma_z",
+                        pertubation_type="cos", number_of_lattices=lattice_num,
+                        potential_type=potential)  # , magnetic_fields=magnetic_field_file) # call system objecy
+        system.make_system()
 
-    # Run these both before you evolve.
-    # system.initial_energies()
-    # system.initial_pdfs()
+        # Run these both before you evolve.
+        system.initial_energies()
+        # system.initial_pdfs()
 
     # system.evolve(100)
     # system.import_mumax3_simulations()
-    system.visualise()
+    # system.visualise()
 
 
 if __name__ == '__main__':
