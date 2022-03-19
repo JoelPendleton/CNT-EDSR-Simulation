@@ -150,7 +150,7 @@ class System:
 
         self.total_length_SI = 0.66e-6
         self.E_sl_ev = 1e-6
-        self.B_0_SI = 50e-3  # Upon using > 250e-3 the two wavefunctions represent the n=1 and n=2 states
+        self.B_0_SI = 5e-3  # Upon using > 250e-3 the two wavefunctions represent the n=1 and n=2 states
         self.B_0_au = self.tesla_to_au(self.B_0_SI)
 
         self.E_sl_au = self.ev_to_hartree(self.E_sl_ev)
@@ -163,6 +163,7 @@ class System:
         self.z_SI = np.linspace(-self.total_length_SI / 2, self.total_length_SI / 2, self.number_of_lattices)
         self.B_0_SI = 5e-3  # Upon using > 250e-3 the two wavefunctions represent the n=1 and n=2 states
         self.E_sl_ev = 1e-6
+        self.B_0_au = self.tesla_to_au(self.B_0_SI)
 
         self.total_length_au = self.total_length_SI / self.a_0_SI  # Total distance of nanotube in terms of au
         self.lattice_size_au = self.total_length_au / self.number_of_lattices  # The distance in atomic units spanned by a lattice point
@@ -354,7 +355,7 @@ class System:
         fig = plt.figure()
 
         energies = self.hartree_to_ev(np.real(self.initial_eigenvalues))
-        y = energies[0:100:2]
+        y = energies[0:20]
 
 
 
@@ -389,39 +390,39 @@ class System:
         # plt.plot([0, 1], [y[1], y[1]], label=r"$G_+$")
         # plt.plot([0, 1], [y[2], y[2]], label=r"$E_-$")
         # plt.plot([0, 1], [y[3], y[3]], label=r"$E_+$")
-
-        if self.potential_type == 0:
-            x = np.array(list(range(1, 100 + 1)))
-            a, b, c = np.polyfit(x, y, 2)
-            y_best_fit = (x ** 2) * a + x * b + c
-            data = {
-                "a": a,
-                "b": b,
-                "c": c
-            }
-        else:
-            x = np.array(list(range(0, 49 + 1)))
-            a, b = np.polyfit(x, y, 1)
-            y_best_fit = x * a + b
-            data = {
-                "a": a,
-                "b": b
-            }
+        data = {
+            "difference": y[1] - y[0]
+        }
+        # if self.potential_type == 0:
+        #     # x = np.array(list(range(1, 100 + 1)))
+        #     # a, b, c = np.polyfit(x, y, 2)
+        #     # y_best_fit = (x ** 2) * a + x * b + c
+        #     data = {
+        #         "difference": y[1]-y[0],
+        #     }
+        # else:
+        #     x = np.array(list(range(0, 49 + 1)))
+        #     a, b = np.polyfit(x, y, 1)
+        #     y_best_fit = x * a + b
+        #     data = {
+        #         "a": a,
+        #         "b": b
+        #     }
         json_string = json.dumps(data)
 
-        with open('./energies-{0}-{1}.json'.format(self.potential_text, self.number_of_lattices), 'w') as outfile:
+        with open('./energy-diff-{0}-{1}.json'.format(self.potential_text, self.number_of_lattices), 'w') as outfile:
             outfile.write(json_string)
 
-        plt.plot(x, y, '.', label="Eigenenergies")
-        plt.plot(x,y_best_fit, '--', label="Line of Best Fit")
-
-        plt.legend(loc="best")
-        plt.xlabel("$n$")
-        plt.ylabel("$E$ (eV)")
-
-        plt.savefig("./energies-{0}-{1}.eps".format(self.potential_text, self.number_of_lattices))  # With A = 0 we expect straight forward zeeman splitting
-        plt.close(fig)
-        print("Plot of eigenenergies at t=0 saved.")
+        # plt.plot(x, y, '.', label="Eigenenergies")
+        # plt.plot(x,y_best_fit, '--', label="Line of Best Fit")
+        #
+        # plt.legend(loc="best")
+        # plt.xlabel("$n$")
+        # plt.ylabel("$E$ (eV)")
+        #
+        # plt.savefig("./energies-{0}-{1}.eps".format(self.potential_text, self.number_of_lattices))  # With A = 0 we expect straight forward zeeman splitting
+        # plt.close(fig)
+        # print("Plot of eigenenergies at t=0 saved.")
         return True
 
     def evolve(self, time_steps=100):
