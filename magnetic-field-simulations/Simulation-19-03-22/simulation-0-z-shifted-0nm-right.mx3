@@ -87,7 +87,7 @@ B_ext = vector(250.0e-3, 0, 0)
 
 relax()  // slower but robust for large changes - allow the system to play out and reach equilibrium
 
-B_ext = vector(250.0e-3, 0, 0)
+B_ext = vector(0, 0, 250.0e-3)
 
 
 relax()  // slower but robust for large changes - allow the system to play out and reach equilibrium

@@ -5,8 +5,14 @@ import kwant
 from numpy import vectorize
 from matplotlib import animation
 from tkwant import onebody
+import tkwant
+import os.path
+import json
+import time as timelib
 
 from csv import writer
+
+
 def append_list_as_row(file_name, list_of_elem):
     # Open file in append mode
     with open(file_name, 'a+', newline='') as write_obj:
@@ -15,82 +21,80 @@ def append_list_as_row(file_name, list_of_elem):
         # Add contents of list as last row in the csv file
         csv_writer.writerow(list_of_elem)
 
-class System:
-    def __init__(self, hamiltonian, lattices=50, potential_type = 0):
 
-        # Define units
-        self.evolve = False
+class System:
+    def __init__(self, hamiltonian, pertubation_type="sin", magnetic_field_file="none", number_of_lattices=50,
+                 potential_type=0):
+
+        # Read arguments
         self.potential_type = potential_type
         self.hamiltonian = hamiltonian
-        self.lattices = lattices
+        self.number_of_lattices = number_of_lattices
+        self.magnetic_field_file = magnetic_field_file
+        self.pertubation_type = pertubation_type
 
-        # Constants in SI units
-        self.time = 0
+        # Constants in S.I.
         self.hbar_SI = 1.054571817e-34
         self.e_SI = 1.602176634e-19
         self.a_0_SI = 5.2917721090380e-11
         self.total_length_SI = 0.66e-6
-        self.B_0_SI = 5e-3 # Upon using > 250e-3 the two wavefunctions represent the n=1 and n=2 states
-        self.b_sl_SI = 1.16e6
-        self.m_SI = 9.11e-31  # divide by ten to get the effective mass
-        self.mu_B_SI= 9.2740100783e-24
-        self.z_SI =  np.linspace(-self.total_length_SI / 2, self.total_length_SI / 2, self.lattices)
+        self.m_e_SI = 9.11e-31
+        self.m_SI = 9.11e-31 / 10  # kg
+        self.mu_B_SI = 9.2740100783e-24
+        self.lattice_size_SI = self.total_length_SI / self.number_of_lattices
+        self.z_SI = np.arange(-self.total_length_SI / 2, self.total_length_SI / 2, self.lattice_size_SI,
+                              dtype=np.double) # in m
 
-        # Constants in a.u.
-        self.B_0_au = self.tesla_SI_to_au(self.B_0_SI)
-        self.b_sl_au =self.tesla_SI_to_au(self.b_sl_SI) * (1/self.m_to_au(1))
-        self.hbar_au = 1
+        self.B_0_SI = 5e-3  # in T
         self.g = 2
-        self.m_au = 1
+
+        # Units in eV
+        self.E_sl_eV = 1e-6 # in eV
+        self.omega_0_eV = 1e-3 # in eV
+        self.eV_0_eV = 1e-6 # in eV
+        # Constants in a.u.
+        self.hbar_au = 1
+        self.m_au = self.m_SI / self.m_e_SI
         self.e_au = 1
-        self.total_length_au = self.total_length_SI / self.a_0_SI # Total distance of nanotube in terms of au
-        self.lattice_size_au = self.total_length_au / self.lattices # The distance in atomic units spanned by a lattice point
+        self.total_length_au = self.m_to_au(self.total_length_SI)  # Total distance of nanotube in terms of au
+        self.lattice_size_au = self.total_length_au / self.number_of_lattices  # Distance in a.u. between lattice points
         self.mu_B_au = .5
-        self.a_0 = 1
-        self.z_au =  np.linspace(-self.total_length_au / 2, self.total_length_au / 2, self.lattices)
-        self.pulse_frequency_au =  (self.g * self.B_0_au * self.mu_B_au) / (2 * np.pi * self.hbar_au) # in Hz
+        self.z_au = np.arange(-self.total_length_au / 2, self.total_length_au / 2, self.lattice_size_au,
+                              dtype=np.double)
 
+        self.B_0_au = self.tesla_to_au(self.B_0_SI)
+        self.E_sl_au = self.ev_to_hartree(self.E_sl_eV)
+        self.b_sl_au = self.E_sl_au / (
+                self.g * self.mu_B_au * self.total_length_au)  # slanted magnetic field value computed from E_sl
+        self.eV_0_au = self.ev_to_hartree(self.eV_0_eV)  # the value in a.u. of eV_0.
+        self.omega_0_au = self.ev_to_hartree(self.omega_0_eV)
+        self.pulse_frequency_au = (self.g * self.B_0_au * self.mu_B_au) / (2 * np.pi * self.hbar_au)  # in Hz
 
-    def import_mumax3_simulations(self):
+    def cosine_v_ac(self, time, z, eV_0_au, pulse_frequency_au, total_length_au):
+        """
+        Function giving the potential energy experience by an electron in a cosine alternating voltage
+        :param time: current time evolution
+        :param z: position along quantum dot
+        :param eV_0_au: magnitude used for potential
+        :param pulse_frequency_au: frequency of oscillation
+        :param total_length_au: total length of quantum wire
+        :return: the time-dependent pertubation due to electric field
+        """
+        return ((eV_0_au * np.cos(2 * np.pi * pulse_frequency_au * time)) * z) / total_length_au
 
-        file_name = "simulation-0-y"
+    def sine_v_ac(self, time, z, eV_0_au, pulse_frequency_au, total_length_au):
+        """
+           Function giving the potential energy experience by an electron in a sine alternating voltage
+           :param time: current time evolution
+           :param z: position along quantum dot
+           :param eV_0_au: magnitude used for potential
+           :param pulse_frequency_au: frequency of oscillation
+           :param total_length_au: total length of quantum wire
+           :return: the time-dependent pertubation due to electric field
+           """
+        return ((eV_0_au * np.sin(2 * np.pi * pulse_frequency_au * time)) * z) / total_length_au
 
-        f = np.load("./magnetic-field-simulations/Simulation-16-02-22/{}.out/B_eff000000.npy".format(file_name))
-        y_coords = list(range(0, 66))
-
-        # y_indices = np.arange(8, 74, 1)
-        # print(return_indices(y_indices))
-        # Effective magnetic field vectors across the wire
-
-        # For each y need to add on some z-shift
-
-        B_x = f[0, 14:19, 8:74, 49:54]
-        B_y = f[1, 14:19, 8:74, 49:54]
-        B_z = f[2, 14:19, 8:74, 49:54]
-
-        # Effective magnetic field mean magnitude at each y-coord
-        B_x_mean = np.mean(B_x, axis=(0, 2))
-        B_y_mean = np.mean(B_y, axis=(0, 2))
-        B_z_mean = np.mean(B_z, axis=(0, 2))
-
-
-
-        fig = plt.figure()
-
-
-        plt.plot(y_coords, B_x_mean, label="$B_x$")
-        # plt.errorbar(x_coords, B_x_mean, yerr=B_x_sd)
-        plt.plot(y_coords, B_y_mean, label="$B_y$")
-        # plt.errorbar(x_coords, B_y_mean, yerr=B_y_sd)
-        plt.plot(y_coords, B_z_mean, label="$B_z$")
-        # plt.errorbar(x_coords, B_z_mean, yerr=B_z_sd)
-        plt.ylabel("$B_{eff}$ $(T)$")
-        plt.xlabel("$y$ $(10^{-8}m)$")
-        plt.legend()
-        plt.savefig("./figures/{}.svg".format(file_name))
-        plt.close(fig)
-
-    def tesla_SI_to_au(self, tesla):
+    def tesla_to_au(self, tesla):
         """
         Function to convert the magnetic flux density from SI units to AU units
         :param tesla: the magnetic flux density in teslas.
@@ -98,30 +102,31 @@ class System:
         """
         return tesla / 2.35e5
 
-    def tesla_au_to_SI(self, tesla):
+    def au_to_tesla(self, au):
         """
         Function to convert the magnetic flux density from SI units to AU units
         :param tesla: the magnetic flux density in teslas.
         :return: the magnetic flux density in AU.
         """
-        return tesla * 2.35e5
+        return au * 2.35e5
 
-    def time_SI_to_au(self, time):
+    def second_to_au(self, time):
         return time * 4.1341373336493e16
 
-    def time_au_to_SI(self, time):
+    def au_to_second(self, time):
         return time / 4.1341373336493e16
 
-    def hartree_to_ev(self,hartree):
+    def hartree_to_ev(self, hartree):
         return hartree * 2.72114e1
-    def ev_to_hartree(self,ev):
+
+    def ev_to_hartree(self, ev):
         return ev / 2.72114e1
 
     def au_to_m(self, au):
-        return 5.2917721090380e-11 * au
+        return self.a_0_SI * au
 
     def m_to_au(self, m):
-        return m / 5.2917721090380e-11
+        return m / self.a_0_SI
 
     def hz_to_au(self, hz):
 
@@ -131,52 +136,71 @@ class System:
 
         return au / 1.51983e-16
 
-    def infinite_square_well_potential(self):
+    def import_mumax3_simulations(self):
+        """
+        Function to import magnetic fields from Mumax3 simulation file
+        :return: magnetic fields in different directions
+        """
 
-        self.total_length_SI = 0.66e-6 / 4
-        self.z_SI =  np.linspace(-self.total_length_SI / 2, self.total_length_SI / 2, self.lattices)
-        self.B_0_SI = 5e-3 # Upon using > 250e-3 the two wavefunctions represent the n=1 and n=2 states
-        self.B_0_au = self.tesla_SI_to_au(self.B_0_SI)
+        file_name = self.magnetic_field_file
 
-        self.E_sl_ev = 1e-6
+        f = np.load("./magnetic-field-simulations/Simulation-20-03-22/{}.out/B_eff000000.npy".format(file_name))
 
-        self.total_length_au = self.total_length_SI / self.a_0_SI  # Total distance of nanotube in terms of au
-        self.lattice_size_au = self.total_length_au / self.lattices  # The distance in atomic units spanned by a lattice point
-        self.z_au = np.linspace(-self.total_length_au / 2, self.total_length_au / 2, self.lattices)
+        # Effective magnetic field vectors across the wire
+        B_x = f[0, 1, 0:100, 149]
+        B_y = f[1, 1, 0:100, 149]
+        B_z = f[2, 1, 0:100, 149]
 
-        self.E_sl_au = self.ev_to_hartree(self.E_sl_ev)
-        self.b_sl_au = self.E_sl_au / (self.g * self.mu_B_au * self.total_length_au) # slanted magnetic field value computed from E_sl
-        self.eV_0_au = self.ev_to_hartree(100e-6) # the value in a.u. of eV_0.
+        fig = plt.figure()
 
-        print("b_sl is", self.tesla_au_to_SI(self.b_sl_au) / self.au_to_m(1), "T.")
-        print("eV_0 is", self.hartree_to_ev(self.eV_0_au), "eV.")
-        print("E_sl is", self.E_sl_ev, "eV.")
+        plt.plot(self.z_SI, B_x, label="$B_x$")
+        plt.plot(self.z_SI, B_y, label="$B_z$")
+        plt.plot(self.z_SI, B_z, label="$B_y$")
+        plt.ylabel("Effective Magnetic Field Strength (T)")
+        plt.xlabel("$z$ (m)")
+        plt.legend()
+        plt.savefig("./figures/{}.eps".format(file_name))
+        plt.close(fig)
 
-
-    def parabolic_potential(self):
-        self.total_length_SI = 0.66e-6
-        self.confinement_length_SI = 0.33e-6
-        self.confinement_length_au = self.m_to_au(self.confinement_length_SI)
-
-        self.z_SI =  np.linspace(-self.total_length_SI / 2, self.total_length_SI / 2, self.lattices)
-        self.B_0_SI = 5e-3 # Upon using > 250e-3 the two wavefunctions represent the n=1 and n=2 states
-        self.E_sl_ev = 1e-6
-
-        self.total_length_au = self.total_length_SI / self.a_0_SI  # Total distance of nanotube in terms of au
-        self.lattice_size_au = self.total_length_au / self.lattices  # The distance in atomic units spanned by a lattice point
-        self.z_au = np.linspace(-self.total_length_au / 2, self.total_length_au / 2, self.lattices)
-
-        self.E_sl_au = self.ev_to_hartree(self.E_sl_ev)
-        self.b_sl_au = self.E_sl_au / (self.g * self.mu_B_au * self.confinement_length_au) # slanted magnetic field value computed from E_sl
-        self.omega_0 = self.hbar_au/(self.m_au*(self.confinement_length_au)**2)
-        self.eV_0_au = self.ev_to_hartree(10e-6) # the value in a.u. of eV_0.
-
-        print("b_sl is", self.tesla_au_to_SI(self.b_sl_au) / self.au_to_m(1), "T.")
-        print("hbar * omega_0 is", self.hartree_to_ev(self.omega_0), "eV.")
-        print("eV_0 is", self.hartree_to_ev(self.eV_0_au), "eV.")
-        print("E_sl is", self.E_sl_ev, "eV.")
+        return B_x, B_z, B_y
 
 
+
+
+
+
+
+
+
+    def potential(self, z, time):  # Infinite square well
+        """
+        Function to define the potential of the lead.
+        :param x: the position in the system.
+        :return: the potential energy.
+        """
+
+        if self.potential_type == 0:  # if hard-wall potential is used
+            total_potential = 0  # define zero for the potential inside the scattering region.
+            # outside the potential will be infinity
+        elif self.potential_type == 1:  # for a parabolic potential
+            total_potential = .5 * (
+                    (z * self.omega_0_au) ** 2)  # define a parabolic potential inside the scattering region.
+        if self.pertubation_type == "cos":
+            self.pertubation = self.cosine_v_ac
+        else:
+            self.pertubation = self.sine_v_ac
+        total_potential += self.pertubation(time, z, self.eV_0_au, self.pulse_frequency_au, self.total_length_au)
+
+        return total_potential
+
+    def kwant_shape(self, site):
+        """
+        function to define the shape of the scattering region.
+        :param site: the current site.
+        :return: the a boolean saying whether the scattering site should be drawn
+        """
+        (z,) = site.pos
+        return (-self.total_length_au / 2 <= z < self.total_length_au / 2)
 
     def make_system(self):
         """
@@ -184,70 +208,94 @@ class System:
         :param length: the length of the nanotube
         :return: the system object
         """
-
-        if self.potential_type == 1: # if we want a parabolic potential
+        if self.potential_type == 1:  # if we want a parabolic potential
             self.potential_text = "parabolic"
-            self.parabolic_potential() # define constants using parabolic potential function
-        else: # if infinite square well
+
+        else:  # if infinite square well
             self.potential_text = "infinite-well"
-            self.infinite_square_well_potential() # define constants using hard-wall potential function
 
-        self.template = kwant.continuum.discretize(self.hamiltonian, grid=self.lattice_size_au) # make template for lattice points based on the inputted hamiltonian/
-
-        def shape(site):
-            """
-            function to define the shape of the scattering region.
-            :param site: the current site.
-            :return: the a boolean saying whether the scattering site should be drawn
-            """
-            (z, ) = site.pos
-            return (-self.total_length_au/2 <= z  < self.total_length_au/2)
-
-
+        self.template = kwant.continuum.discretize(self.hamiltonian,
+                                                   grid=self.lattice_size_au)  # make template for lattice points based on the inputted hamiltonian/
 
         self.syst = kwant.Builder()
 
-        #Add the nanotube to the system
-        self.syst.fill(self.template, shape, (0, ))
+        # Add the nanotube to the system
+        self.syst.fill(self.template, self.kwant_shape, (0,))
 
-        kwant.plot(self.syst, file='./figures/shape.png')
+        # kwant.plot(self.syst, file='./figures/shape.png')
         self.syst = self.syst.finalized()
 
+        self.A_constant = self.hbar_au ** 2 / (2 * self.m_au) # coefficient for the kinetic energy term
+        if self.magnetic_field_file != "none": # if the user provides a magnetic field file
+            B_x, B_y, B_z = self.import_mumax3_simulations() # import the magnetic fields
+
+
+        def B_function(z):
+            """
+            Function to get the Hamiltonian term due to the magnetic field in the z-direction
+            :param z: the position along the quantum wire
+            :return: the Hamiltonian term
+            """
+            if self.magnetic_field_file != "none": # if the user provides a magnetic field file
+                index = np.around(z, 3) == np.around(self.z_au, 3) # generate an array of booleans where the
+                # true value coincides to the position of the z-coordinate within the array
+                # found 3 d.p. by testing (not sure if this is the best way)
+                return -self.g * self.mu_B_au * self.tesla_to_au(B_z[index]) * self.hbar_au / 2 # use this array of booleans to extraact the relevant magnetic field
+            else:
+                return -self.g * self.mu_B_au * self.B_0_au * self.hbar_au / 2
+
+        def C_function(z):
+            """
+            Function to get the Hamiltonian term due to the magnetic field in the x-direction
+            :param z: the position along the quantum wire
+            :return: the Hamiltonian term
+            """
+            if self.magnetic_field_file != "none": # if the user provides a magnetic field file
+                index = np.around(z, 3) == np.around(self.z_au, 3)
+                return -self.g * self.mu_B_au * self.tesla_to_au(B_x[index]) * self.hbar_au / 2
+            else:
+                return -self.b_sl_au * z
+
+        def D_function(z):
+            """
+            Function to get the Hamiltonian term due to the magnetic field in the y-direction
+            :param z: the position along the quantum wire
+            :return: the Hamiltonian term
+            """
+            if self.magnetic_field_file != "none": # if the user provides a magnetic field file
+                index = np.around(z, 3) == np.around(self.z_au, 3)
+                return -self.g * self.mu_B_au * self.tesla_to_au(B_y[index]) * self.hbar_au / 2
+            else:
+                return 0
+
+        # import these function and coefficients for use in the full Hamiltonian used to define the system
+        self.params = dict(A=self.A_constant, V=self.potential, B=B_function, C=C_function, D=D_function)
+
+        self.tparams = self.params.copy() # copy the params array
+        self.tparams['time'] = 0  # add another parameter, with the initial time = 0
+        print("System intialised.")
+
+        # compute the Hamiltonian matrix for this system using the above parameters.
+        hamiltonian = self.syst.hamiltonian_submatrix(params=self.tparams)
+        # From this Hamiltonian matrix compute the eigenvalues (energies) and eigenvectors (wavefunctions).
+        eigenValues, eigenVectors = np.linalg.eig(hamiltonian)
+
+        # Sort the eigenvectors and eigenvalues according the ascending eigenvalues.
+        idx = eigenValues.argsort()
+        self.initial_eigenvalues = eigenValues[idx]
+        eigenVectors = eigenVectors[:, idx]
+
+        # initial wave functions unperturbed by time dependent part of hamiltonian
+        self.psi_1_init = eigenVectors[:, 0]
+        self.psi_2_init = eigenVectors[:, 1]
+
+        # an object representing the spin-up state (we care about how this state evolves with time)
+        self.spin_up_state = tkwant.onebody.WaveFunction.from_kwant(syst=self.syst,
+                                                                    psi_init=self.psi_1_init,
+                                                                    energy=eigenValues[0],
+                                                                    params=self.params)
+
         return self.syst
-
-    def V_AC(self, z):
-        """
-        Function defining the alternating potential pertubation (H_1) to be added to the hamiltonian.
-        :param z: the positions along the CNT.
-        :return: the value of the perturbartion.
-        """
-        return ((self.eV_0_au * np.sin(
-            2 * np.pi * self.pulse_frequency_au * self.time)) * z) / self.total_length_au
-
-    def potential(self, z):  # Infinite square well
-        """
-        Function to define the potential of the lead.
-        :param x: the position in the system.
-        :return: the potential energy.
-        """
-
-        if self.potential_type == 0: # if hard-wall potential is used
-            total_potential = 0 # define zero for the potential inside the scattering region.
-            # outside the potential will be infinity
-        elif self.potential_type == 1: # for a parabolic potential
-            total_potential = .5 * ((z * self.omega_0) ** 2) # define a parabolic potential inside the scattering region.
-
-        if self.evolve: # if the state is evolving
-            total_potential += self.V_AC(z) # add a cosine term to the potential to represent an applied E field.
-
-        return total_potential
-
-
-
-
-
-
-
 
     def eigenstates(self):
         """
@@ -255,16 +303,9 @@ class System:
         :param syst: the system object.
         :return: the sorted eigenvalues and eigenvectors.
         """
-        # Constants used to define the Hamiltonian (using a.u.)
-        self.A_constant =  -self.g * self.mu_B_au * self.B_0_au * self.hbar_au / 2
-        self.B_constant = -self.g * self.mu_B_au * self.b_sl_au * self.hbar_au / 2
-        self.C_constant = self.hbar_au **2 / (2 * self.m_au)
-
-        params = dict(C=self.C_constant, V=self.potential, A=self.A_constant, B=self.B_constant)
 
         # compute the Hamiltonian matrix for this system using the above parameters.
-        hamiltonian = self.syst.hamiltonian_submatrix(params=params)
-
+        hamiltonian = self.syst.hamiltonian_submatrix(params=self.tparams)
         # From this Hamiltonian matrix compute the eigenvalues (energies) and eigenvectors (wavefunctions).
         eigenValues, eigenVectors = np.linalg.eig(hamiltonian)
 
@@ -275,103 +316,72 @@ class System:
 
         return eigenValues, eigenVectors
 
-    def show_energies(self):
+    def initial_pdfs(self):
+
         """
-        Procedure to display the potential and energy levels of the system
+        Function to show the initial probability density functions of the spin-up and spin-down ground state
         :param syst: the system object.
-        :return:
-        """
-
-        # compute the eigenvalues
-        eigenValues, eigenVectors = self.eigenstates()
-
-        fig = plt.figure()
-
-        energies = np.real(eigenValues)
-        energies = energies[0:10]
-        y = energies
-        print("E_1 is",  self.hartree_to_ev(y[0]), "eV.")
-
-        # E_1_actual = (1)**2 * (np.pi)**2 * self.hbar_au**2 / (2 * self.m_au * self.total_length_au**2)
-        # E_2_actual = (2)**2 * (np.pi)**2 * self.hbar_au**2 / (2 * self.m_au * self.total_length_au**2)
-        # E_1_actual = (1/2)*self.hbar_au * self.omega_0
-        # E_2_actual = (1+1/2)*self.hbar_au * self.omega_0
-        #
-        # E_1_sim = y[0]
-        # E_2_sim = y[2]
-        # zeeman_sim = y[1]-y[0]
-        # print("Simulated zeeman splitting is",zeeman_sim)
-        #
-        # print("Actual zeeman splitting is",self.g * self.mu_B_au * self.B_0_au)
-        # print("E_1 actual:", E_1_actual)
-        # print("E_2 actual:", E_2_actual)
-        # print("E_1 simulated:", E_1_sim)
-        # print("E_2 simulated:", E_2_sim)
-
-
-
-        # m, b = np.polyfit(x[0::2], y[0::2], 1)
-        # a, b, c = np.polyfit(x[::2], y[::2], 2)
-
-        # t = self.hbar_au ** 2 / (2 * self.m_au * (self.lattice_size_au)**2)
-        # print("Is the model a good approximation?", energies[2] < t)
-        # plt.plot(x[0::2], m * x[0::2] + b, '--')
-        # plt.plot(x, a * x**2 + b*x + c, '--')
-
-        # Plot the energies of the different levels.
-        plt.plot([0, 1], [y[0], y[0]],  label=r"$G_-$")
-        plt.plot([0, 1], [y[1],y[1]], label=r"$G_+$")
-        plt.plot([0, 1], [y[2],y[2]], label=r"$E_-$")
-        plt.plot([0, 1], [y[3],y[3]], label=r"$E_+$")
-        plt.legend(loc="best")
-        plt.ylabel("$E$ (a.u.)")
-
-        plt.savefig("./figures/energies/energies-{0}-potential-{1}.svg".format(self.lattices, self.potential_text))  # With A = 0 we expect straight forward zeeman splitting
-        plt.close(fig)
-        print("Plot of eigenenergies saved.")
-        return True
-
-    def show_wave_function(self, animate=False):
-
-        """
-        Procedure to show the probability density function.
-        :param syst: the system object.
-        :return:
+        :return: PDFs of the spin-up and spin-down ground state
         """
         eigenValues, eigenVectors = self.eigenstates()
 
         # https://kwant-project.org/doc/dev/tutorial/operators - this explains the output of the eigenvectors.
-        psi1 = eigenVectors[:, 0]
+        psi1 = self.psi_1_init
         psi1_up, psi1_down = psi1[::2], psi1[1::2]
         # even indices give the spin up and odd indices give the spin down states
         density_1 = np.abs(psi1_up) ** 2 + np.abs(psi1_down) ** 2
-        psi2 = eigenVectors[:,1]
+        psi2 = self.psi_2_init
         psi2_up, psi2_down = psi2[::2], psi2[1::2]
-        density_2 =  np.abs(psi2_up) ** 2 + np.abs(psi2_down) ** 2
+        density_2 = np.abs(psi2_up) ** 2 + np.abs(psi2_down) ** 2
 
-        if animate == False: # if we do not wish to animate our wave function and wish to plot it.
-            fig = plt.figure()
+        fig = plt.figure()
 
+        plt.plot(self.z_SI, density_1, label=r'$|1, -\frac{1}{2}\rangle$')
+        plt.plot(self.z_SI, density_2, label=r'$|1, +\frac{1}{2}\rangle$')
 
-            plt.plot(self.z_SI, density_1, label=r'$|1, -\frac{1}{2}\rangle$')
-            plt.plot(self.z_SI, density_2, label=r'$|1, +\frac{1}{2}\rangle$')
+        plt.xlabel("$x$ (a.u.)")
+        plt.ylabel("$|\psi(x)|^2$")
+        plt.legend(loc="upper right")
 
-            plt.xlabel("$x$ (a.u.)")
-            plt.ylabel("$|\psi(x)|^2$")
-            plt.legend(loc="upper right")
-
-            # save file with name according to potential type.
-            plt.savefig("./figures/pdfs/initial-pdfs-{0}-potential-{1}.svg".format(self.lattices, self.potential_text))  # With A = 0 we expect straight forward zeeman splitting
-            plt.close(fig)
-            print("Plot of wave functions saved at at t={}s".format('{:g}'.format(float('{:.{p}g}'.format(self.time, p=2)))))
+        # save file with name according to potential type.
+        plt.savefig("./initial-pdfs.eps")  # With A = 0 we expect straight forward zeeman splitting
+        plt.close(fig)
+        print("Plot of PDFs at t=0 saved.")
 
         return density_1, density_2
 
-    def rabi_oscillations(self, animate = False, time_steps = 20, animation_osc_time = 1e-8):
-        self.time = 0 # initialise system to time = 0
+    def initial_energies(self):
+        """
+        Function to display energy levels of the system in eV
+        :param syst: the system object.
+        :return:
+        """
 
-        def x_onsite(site): # function to compute the position operator matrix.
-            return [site.pos[0]]*np.identity(2)
+        fig = plt.figure()
+
+        y = self.hartree_to_ev(np.real(self.initial_eigenvalues))
+        print("E_1 is", y[0], "eV.")
+        print("E_2 is", y[1], "eV.")
+
+
+        # Plot the energies of the different levels.
+        plt.plot([0, 1], [y[0], y[0]], label=r"$G_-$")
+        plt.plot([0, 1], [y[1], y[1]], label=r"$G_+$")
+        plt.plot([0, 1], [y[2], y[2]], label=r"$E_-$")
+        plt.plot([0, 1], [y[3], y[3]], label=r"$E_+$")
+        plt.legend(loc="best")
+        plt.ylabel("$E$ (a.u.)")
+
+        plt.savefig("./energies.eps")  # With A = 0 we expect straight forward zeeman splitting
+        plt.close(fig)
+        print("Plot of eigenenergies at t=0 saved.")
+        return y
+
+    def evolve(self, time_steps=100):
+        timestr = timelib.strftime("%Y%m%d-%H%M%S")
+
+        def x_onsite(site):  # function to compute the position operator matrix.
+            return [site.pos[0]] * np.identity(2)
 
         # spin matrices
         sigma_x = np.array([[0, 1],
@@ -381,196 +391,224 @@ class System:
         sigma_z = np.array([[1, 0],
                             [0, -1]])
 
-        # compute eigenstates
-        eigenValues, eigenVectors = self.eigenstates()
-
-
         # extract lowest two energies (our qubit states)
-        E_1 = np.real(eigenValues[0])
-        E_2 = np.real(eigenValues[1])
+        E_1 = np.real(self.initial_eigenvalues[0])
+        E_2 = np.real(self.initial_eigenvalues[1])
 
         # extract the state vectors corresponding to these lowest eigenenergies.
-        psi1 = eigenVectors[:, 0]
-        psi2 = eigenVectors[:, 1]
+        psi1 = self.psi_1_init
+        psi2 = self.psi_2_init
 
         # compute the difference in these energies
         self.delta_E = np.abs(E_2 - E_1)
 
-
-
-        # print("ratio of E_z/w0 = ", self.delta_E/self.omega_0)
         # compute the resonant frequency for the rabi oscillations
         omega_res = self.delta_E / self.hbar_au
-        self.pulse_frequency_au = omega_res / (2 * np.pi) # set the frequency of the V_AC(t) to be equal to the res. freq.
+        self.pulse_frequency_au = omega_res / (
+                2 * np.pi)  # set the frequency of the V_AC(t) to be equal to the res. freq.
 
-        eff_B_field_au = self.b_sl_au * self.z_au # compute the slanted field at each point along the CNT.
-
+        eff_B_field_au = self.b_sl_au * self.z_au  # compute the slanted field at each point along the CNT.
 
         # define the density operator of x
         rho_x = kwant.operator.Density(self.syst, x_onsite, sum=True)
-        # compute this density operator on the ground states <1|x|2>:
-        rho_x_1_2 = rho_x(psi1,psi2)
+        # compute this density operator on the ground states <2|x|1>:
+        rho_x_2_1 = rho_x(psi2, psi1)
 
         # compute the energy E_x
-        E_x = np.real(2 * self.eV_0_au *  rho_x_1_2 / self.total_length_au)
+        E_x = np.real(2 * self.eV_0_au * rho_x_2_1 / self.total_length_au)
+        self.t_pi = 2 * np.pi / E_x  # compute t_pi the time required for the state to go from spin-up to spin-down.
 
-        self.t_pi = 2*np.pi/E_x # compute t_pi the time required for the state to go from spin-up to spin-down.
-        # print("E_x is", E_x)
-        # print("E_z is", omega_res)
-        # print(self.time_au_to_SI(self.t_pi))
-
-        if animate == True: # if we want to animate
-            total_osc_time = animation_osc_time
-        else: # if we don't wish to animate
-
-            total_osc_time = 2 * self.t_pi
+        total_osc_time = self.t_pi
 
         # compute oscillation times.
         times_au = np.linspace(0, total_osc_time, num=time_steps)
-        times_SI = np.linspace(0, self.time_au_to_SI(total_osc_time), num=time_steps)
+        times_SI = np.linspace(0, self.au_to_second(total_osc_time), num=time_steps)
 
         B_au = np.empty((time_steps,), dtype=np.double)
 
-        probabilities_0 = [] # Probability that it stays in initial state
-        probabilities_1 = [] # Probability that it enters the excited state
+        # compute the spin operators at new time
+        rho_sz = kwant.operator.Density(self.syst, sigma_z, sum=True)
+        rho_sy = kwant.operator.Density(self.syst, sigma_y, sum=True)
+        rho_sx = kwant.operator.Density(self.syst, sigma_x, sum=True)
 
-        # Expectation values of spin operators
-        rho_sz_list = []
-        rho_sy_list = []
+        density_operator = kwant.operator.Density(self.syst)
+        psi = self.spin_up_state
+        E_1 = np.real(self.initial_eigenvalues[0])
+        E_2 = np.real(self.initial_eigenvalues[1])
+
+        # data dictionary to store parameters used in simulation (units are a.u.)
+        data = {
+            'B_0': self.B_0_au,
+            'lattice_points': self.number_of_lattices,
+            'length': self.total_length_au,
+            'eV_0': self.eV_0_au,
+            'E_sl': self.E_sl_au,
+            'E_x': E_x,
+            'E_z': omega_res,
+            'perturbation': self.pertubation_type,
+            'potential_type': self.potential_text,
+            'effective_mass': self.m_au,
+            'E_1': E_1,
+            'E_2': E_2,
+            'states': []
+        }
+        print("Simulation starting with", time_steps, "time steps from 0.0 to", total_osc_time, "a.u.")
+
+
+        for time in times_au:
+            print("Evolving state to time", time, "a.u.")
+            psi.evolve(time) # evolved the wavefunction according to TDSE to time
+            density = np.abs(self.spin_up_state.evaluate(density_operator)) ** 2 # compute PDF
+            average_eff_B_field_au = np.trapz(density * eff_B_field_au,
+                                              x=self.z_au)  # compute the expectation of the slanted field.
+
+            # compute the expectations of the spin operators on the evolved state and store their values.
+            spin_z = np.real(self.spin_up_state.evaluate(rho_sz))
+            spin_y = np.real(self.spin_up_state.evaluate(rho_sy))
+            spin_x = np.real(self.spin_up_state.evaluate(rho_sx))
+
+            # for each time step add to the relevant quantities at this time to the data['states'] list
+            data['states'].append({
+                'time': time,
+                'pdf': density.tolist(),
+                'B_x': average_eff_B_field_au,
+                'rho_sx': spin_x,
+                'rho_sy': spin_y,
+                'rho_sz': spin_z,
+            })
+
+        json_string = json.dumps(data)
+
+        # save the simulation data
+        with open('/content/drive/My Drive/{}.json'.format(timestr), 'w') as outfile:
+            outfile.write(json_string)
+
+        return True
+
+    def visualise(self, file_name):
+        """
+        Function to visualise the output of the EDSR simulator
+        :param file_name: The name of the file you which to import and visualise
+        :return:
+        """
+
+        with open('./evolve-output/{}'.format(file_name)) as json_file:
+            data = json.load(json_file)
+        folder_path = "./results/{}".format(file_name)
+        if os.path.isdir(folder_path) == False:
+            os.mkdir(folder_path)
+
+        times = []
         rho_sx_list = []
+        rho_sy_list = []
+        rho_sz_list = []
+        B_x_list = []
+        pdf_list = []
+        parameters = { # from the imported data extract the relevant params and convert to SI units
+            'B_0': self.au_to_tesla(data['B_0']),
+            'lattice_points': data['lattice_points'],
+            'length': self.au_to_m(data['length']),
+            'eV_0': self.hartree_to_ev(data['eV_0']),
+            'E_sl': self.hartree_to_ev(data['E_sl']),
+            'E_x': self.hartree_to_ev(data['E_x']),
+            'E_z': self.hartree_to_ev(data['E_z']),
+            'perturbation': data['perturbation'],
+            'potential_type': data['potential_type'],
+            'effective_mass': data['effective_mass']
+        }
 
-        self.evolve = True # allow the system to evolve.
+        json_string = json.dumps(parameters)
 
+        with open('{}/parameters.json'.format(folder_path), 'w') as outfile:
+            outfile.write(json_string) # save the params
 
-        for i in range(time_steps):
+        print("Parameters saved.")
 
-            self.time = times_au[i] # update the time
+        for state in data["states"]: # for each of the different states/times
+            # extract the quantities and put them in their own lists
+            times.append(state['time'])
+            rho_sx_list.append(state['rho_sx'])
+            rho_sy_list.append(state['rho_sy'])
+            rho_sz_list.append(state['rho_sz'])
+            B_x_list.append(state['B_x'])
+            pdf_list.append(state['pdf'])
 
-            # compute the spin operators at new time
-            rho_sz = kwant.operator.Density(self.syst, sigma_z, sum=True)
-            rho_sy = kwant.operator.Density(self.syst, sigma_y, sum=True)
-            rho_sx = kwant.operator.Density(self.syst, sigma_x, sum=True)
+        times_au = times
+        times_SI = self.au_to_second(np.array(times))
+        B_x_list = self.au_to_tesla(np.asarray(B_x_list))
 
-            # update eigenstates
-            eigenValues, eigenVectors = self.eigenstates()
-
-            psi_evolved = eigenVectors[:, 0] # compute the evolved spin-up state
-
-            psi_evolved_up, psi_evolved_down = psi_evolved[::2], psi_evolved[1::2] # isolate the comprising spin components
-            density_1 = np.abs(psi_evolved_up) ** 2 + np.abs(psi_evolved_down) ** 2 # compute the probability density
-
-            average_eff_B_field_au = np.trapz(density_1*eff_B_field_au, x=self.z_au) #compute the expectation of the slanted field.
-            B_au[i] = np.real(average_eff_B_field_au) # store this value in the numpy array
-
-            inside_term_0 = np.conjugate(psi1).T @ psi_evolved # compute the overlap of the evolved state with the initial spin-up state
-            inside_term_1 = np.conjugate(psi2).T @ psi_evolved # compute the overlap of the evolved state with the initial spin-down state
-            # add these to their respective lists.
-            probabilities_0.append(np.abs(inside_term_0)**2)
-            probabilities_1.append(np.abs(inside_term_1)**2)
-
-            # compute the expecrations of the spin operators on the evolved state and store their values.
-            spin_z = np.real(rho_sz(psi_evolved))
-            rho_sz_list.append(spin_z)
-            spin_y = np.real(rho_sy(psi_evolved))
-            rho_sy_list.append(spin_y)
-            spin_x = np.real(rho_sx(psi_evolved))
-            rho_sx_list.append(spin_x)
-
-        if animate == False: # if not animating
-
-            # Plot magnetic field
-            fig1 = plt.figure()
-            plt.plot(times_SI, self.tesla_au_to_SI(B_au), label="$B_x$")
-            plt.ylabel(r'$\bar{B}_z$ (T)')
-            plt.xlabel("$t$ (s)")
-            # plt.title("Plot of Average Magnetic Field Varying with Time")
-            plt.savefig("./figures/magnetic-field/B-average-v-time-{0}-potential-{1}.svg".format(self.lattices, self.potential_text))
-            plt.close(fig1)
-            np.save('magnetic_field.npy', B_au)
-            np.save('times.npy', times_au)
-            print("Magnetic field vs time plotted.")
+        fontsize = 16
 
 
-            # Plot Expectations
-            fig2 = plt.figure()
-            plt.plot(times_SI, rho_sx_list, label=r'$\rho_x$')
-            plt.plot(times_SI, rho_sy_list, label=r'$\rho_y$')
-            plt.plot(times_SI, rho_sz_list, label=r'$\rho_z$')
+        # plot the pauli spin matrices expectation values
+        spin_expectation_fig, ax = plt.subplots(figsize=(10, 6))
+        plt.rcParams.update({'font.size': fontsize})
+        plt.plot((times_SI), rho_sx_list, label='$\\langle X \\rangle$')
+        plt.plot((times_SI), rho_sy_list, label='$\\langle Y \\rangle$')
+        plt.plot((times_SI), rho_sz_list, label='$\\langle Z \\rangle$')
+        plt.legend(fontsize=fontsize, loc="upper right")
+        ax.set_xlabel('$t$ (s)', fontsize=fontsize)
+        ax.tick_params(axis='both', which='major', labelsize=fontsize)
+        plt.savefig('{}/spin-expectations.eps'.format(folder_path), bbox_inches='tight')
+        plt.close(spin_expectation_fig)
+        print("Plot of spin expectations vs. time saved.")
 
-            plt.xlabel("$t$ (s)")
-            plt.legend(loc="upper right")
-            plt.savefig("./figures/rabi-oscillations/spin-expectations-{0}-potential-{1}.svg".format(self.lattices, self.potential_text))
-            plt.close(fig2)
-            print("expect vs time plotted.")
 
-            # Plot Probabilities
-            fig3 = plt.figure()
-            plt.plot(times_SI, probabilities_0, label=r'$|c_1|^2$')
-            plt.plot(times_SI, probabilities_1, label=r'$|c_2|^2$')
-            plt.axvline(x=self.time_au_to_SI(self.t_pi), linestyle='--', label=r"$t_{\pi}$")
+        # plot the magnetic field in the x-direction
+        mag_field_fig, ax = plt.subplots(figsize=(10, 6))
+        plt.plot(times_SI, B_x_list, label=r'$\langle B_x \rangle$')
+        plt.legend(fontsize=fontsize, loc="upper right")
+        ax.set_xlabel('$t$ (s)', fontsize=fontsize)
+        ax.tick_params(axis='both', which='major', labelsize=fontsize)
+        ax.set_ylabel('Magnetic Field Strength (T)', fontsize=fontsize)
 
-            plt.ylabel("Probability")
-            plt.xlabel("$t$ (s)")
-            # plt.legend(loc="upper right")
-            plt.savefig(
-                "./figures/rabi-oscillations/prob-v-time-{0}-potential-{1}.svg".format(self.lattices, self.potential_text))
-            plt.close(fig3)
-            print("prob vs time plotted.")
-
-        return probabilities_1, B_au
-
-    def save_animation(self):
-
-        self.time = 0 # intialise system to time = 0
+        plt.savefig('{}/magnetic-fields.eps'.format(folder_path), bbox_inches='tight')
+        plt.close(mag_field_fig)
+        print("Plot of magnetic field vs. time saved.")
 
         # create a figure with two subplots
-        fig, axs = plt.subplots(2, 2)
+        fig_animation, axs = plt.subplots(2, 2)
 
         # 1920 x 1080
         w_in_inches = 19.2
         h_in_inches = 10.8
         dpi = 100
-        fig.set_size_inches(w_in_inches, h_in_inches, True)
-        fig.set_dpi(dpi)
-        fig.tight_layout(pad=5.0) # add padding to subplots.
+        fig_animation.set_size_inches(w_in_inches, h_in_inches, True)
+        fig_animation.set_dpi(dpi)
+        fig_animation.tight_layout(pad=5.0)  # add padding to subplots.
 
         # set variables for each of the axes.
-        ax1 = axs[0,0]
-        ax2 = axs[1,0]
-        ax3 = axs[0,1]
-        ax4 = axs[1,1]
-
-        y1,y2 = self.show_wave_function(animate=True) # x is in au
-
+        ax1 = axs[0, 0]
+        ax2 = axs[1, 0]
+        ax3 = axs[0, 1]
+        ax4 = axs[1, 1]
 
         # intialize two line objects (one in each axes)
-        line1, = ax1.plot([], [], lw=2, label=r'$|1, +\frac{1}{2}\rangle$')
-        line2, = ax1.plot(self.z_SI, y2, lw=2, label=r'$|1, -\frac{1}{2}\rangle$')
-        line3, = ax2.plot([], [], lw=2, color='r', label='$V(z,t)$')
-        line4, = ax3.plot([], [], lw=2, color='b', label='$|c_2|^2$')
-        line5, = ax4.plot([], [], lw=2, label=r'$\bar{B}_z$')
-        line = [line1, line2, line3, line4,line5]
+        line1, = ax1.plot([], [], lw=2)
+        line2, = ax2.plot([], [], lw=2, color='r', label='$H_1(t)$')
+        line3, = ax3.plot([], [], lw=2, label=r'$\langle X \rangle$')
+        line4, = ax3.plot([], [], lw=2, label=r'$\langle Y \rangle$')
+        line5, = ax3.plot([], [], lw=2, label=r'$\langle Z \rangle$')
+        line6, = ax4.plot([], [], lw=2, label=r'$\langle B_x \rangle$')
+        line = [line1, line2, line3, line4, line5, line6]
 
-        z_max_SI = self.total_length_SI / 2 # in SI
-        z_max_au = self.total_length_au / 2 # in SI
+        z_max_SI = self.total_length_SI / 2  # in SI
+        z_max_au = self.total_length_au / 2  # in SI
 
-        y2_max = self.hartree_to_ev(self.eV_0_au  * z_max_au / self.total_length_au) # in SI (maximum value for V_AC(t)
-        number_of_frames = 20 # number of frames to use for animation -> animation is 30 fps so runs for number_of_frames/30 seconds.
+        y2_max = self.hartree_to_ev(
+            (self.eV_0_au * z_max_au / self.total_length_au))  # in SI (maximum value for V_AC(t)
 
-        total_osc_time_au = self.t_pi  # runs for t_pi
-        total_osc_time_SI = self.time_au_to_SI(total_osc_time_au)
-        times_SI = np.linspace(0, total_osc_time_SI, num=number_of_frames)
+        y1 = np.abs(pdf_list[0]) ** 2
+        y1_max = np.max(y1) * 2
 
-        # get the probabilities for these times.
-        probabilties, mag_field_au = self.rabi_oscillations(animate=True, time_steps=number_of_frames, animation_osc_time=total_osc_time_au)
-        # fig.suptitle("$ \omega  =${0} rads^{-1}, e$V_0$ ={1} eV".format(self.au_to_hz(self.pulse_frequency_au), self.hartree_to_ev(self.eV_0_au)))
-
-
-        # Set limits and labels for plots.
+        if data['perturbation'] == "cos":
+            y3_func = self.cosine_v_ac
+        else:
+            y3_func = self.sine_v_ac
 
         # PDFs
         ax1.set_xlim(-z_max_SI, z_max_SI)
-        ax1.set_ylim(0, np.max(y1) * 1.5)
+        ax1.set_ylim(0, y1_max * 1.5)
         ax1.set_ylabel("$|\psi(z,t)|^2$")
 
         # Potential
@@ -580,62 +618,50 @@ class System:
         ax2.set_ylabel("$E$ (eV)")
         ax2.set_xlabel("z ($m$)")
 
-        # Probability
-        ax3.set_xlim(0, total_osc_time_SI)
-        ax3.set_ylim(0, 1.1)
-        ax3.set_ylabel("Probability")
+        # Expectations
+        ax3.set_xlim(0, times_SI[-1])
+        ax3.set_ylim(-1.0, 1.0)
 
         # Magnetic Field
 
-        ax4.set_xlim(0, total_osc_time_SI)
-        # mag_field_limits = self.tesla_au_to_SI(-1.5e-4)
-        mag_field_SI = self.tesla_au_to_SI(mag_field_au)
-        ax4.set_ylim(-100, 100)
+        ax4.set_xlim(0, times_SI[-1])
+        ax4.set_ylim(-1.1 * np.max(B_x_list), 1.1 * np.max(B_x_list))
         ax4.set_ylabel("Magnetic Field Strength (T)")
         ax4.set_xlabel("t (s)")
 
         # initialization function: plot the background of each frame
         def init():
             line[0].set_data([], [])
+            line[1].set_data([], [])
             line[2].set_data([], [])
             line[3].set_data([], [])
             line[4].set_data([], [])
-
+            line[5].set_data([], [])
 
             return line
 
         def animate(i):
-
-            # update times
-            self.time =  (i  * total_osc_time_au) / number_of_frames
-
-            # update wavefunctions
-            y1,y2 = self.show_wave_function(animate=True)
-
-            # update V_AC
-            V_AC = vectorize(self.V_AC, otypes=[np.float64])
-            y3 = self.hartree_to_ev(V_AC(self.z_au))
+            y3 = self.hartree_to_ev(
+                y3_func(times_au[i], self.z_au, self.eV_0_au, self.pulse_frequency_au, self.total_length_au))
 
             # update line objects.
-            line[0].set_data(self.z_SI, y1)
-            line[2].set_data(self.z_SI,  y3)
-            line[3].set_data(times_SI[0:i],  probabilties[0:i])
-            line[4].set_data(times_SI[0:i],  mag_field_SI[0:i])
+            line[0].set_data(self.z_SI, np.abs(pdf_list[i]) ** 2)
+            line[1].set_data(self.z_SI, y3)
+            line[2].set_data(times_SI[0:i + 1], rho_sx_list[0:i + 1])
+            line[3].set_data(times_SI[0:i + 1], rho_sy_list[0:i + 1])
+            line[4].set_data(times_SI[0:i + 1], rho_sz_list[0:i + 1])
+            line[5].set_data(times_SI[0:i + 1], B_x_list[0:i + 1])
 
-            ax1.legend(loc="upper right")
+            # ax1.legend(loc="upper right")
             ax2.legend(loc="upper right")
             ax3.legend(loc="upper right")
             ax4.legend(loc="upper right")
 
-            # plt.savefig("./figures/temp/animation-{}.svg".format('{:g}'.format(float('{:.{p}g}'.format(self.time_au_to_SI(self.time), p=2)))))
-
             return line
 
         # call the animator.  blit=True means only re-draw the parts that have changed.
-        anim = animation.FuncAnimation(fig, animate,init_func=init,
-                                       frames=number_of_frames, interval=30, blit=True)
-
-
+        anim = animation.FuncAnimation(fig_animation, animate, init_func=init,
+                                       frames=len(times), interval=30, blit=True)
 
         # save the animation as an mp4.  This requires ffmpeg or mencoder to be
         # installed.  The extra_args ensure that the x264 codec is used, so that
@@ -643,28 +669,31 @@ class System:
         # your system: for more information, see
         # http://matplotlib.sourceforge.net/api/animation_api.html
 
-        anim.save('./figures/wavefunction-animation-{}.mp4'.format(self.potential_text), writer='ffmpeg')
+        # save animation
+        anim.save('{}/animation.mp4'.format(folder_path), writer='ffmpeg')
 
+        print("Animation saved.")
 
-        plt.close(fig)
-        print("Animation of wave functions saved.")
 
 def main():
+    lattices = 100  # number of lattice points
 
-    lattices = 100 # number of lattice points
-    print("Testing simulation accuracy of", lattices, "lattice points.")
-    system = System("((C * k_z**2) + V(z)) * identity(2) + A * sigma_z + B  * z * sigma_x", lattices, potential_type=0) # call system objecy
-    system.make_system() # make the system
-    system.time = 0 # initialise the time to zero.
-    system.show_wave_function()
-    system.show_energies()
-    system.rabi_oscillations()
-    # system.save_animation()
-    # system.import_mumax3_simulations()
+    potential = 0  # infinite square-well potential
+    magnetic_field_file = "simulation-0-y-shifted-0nm-right"
+    system = System("((A * k_z**2) + V(z, time)) * identity(2) + B(z) * sigma_z + C(z) * sigma_x + D(z) * sigma_x",
+                    pertubation_type="cos", number_of_lattices=lattices,
+                    potential_type=potential, magnetic_field_file=magnetic_field_file) # call system objecy
+    system.make_system()
+
+    # Run these both before you evolve.
+    system.initial_energies()
+    system.initial_pdfs()
+
+    system.evolve(100)
+    system.import_mumax3_simulations()
+    system.visualise("20220321-125400.json")
 
 
 if __name__ == '__main__':
     main()
 
-# Why does the parabolic potential ground state wave functions become the n=1 and n=2 wave functions when the
-# B_0 is set above 250e-3? Might be Paschen-Back regime.
