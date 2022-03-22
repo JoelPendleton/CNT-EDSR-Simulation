@@ -32,6 +32,7 @@ class System:
         self.number_of_lattices = number_of_lattices
         self.magnetic_field_file = magnetic_field_file
         self.pertubation_type = pertubation_type
+        self.evolve_state = False
 
         # Constants in S.I.
         self.hbar_SI = 1.054571817e-34
@@ -39,19 +40,19 @@ class System:
         self.a_0_SI = 5.2917721090380e-11
         self.total_length_SI = 0.66e-6
         self.m_e_SI = 9.11e-31
-        self.m_SI = 9.11e-31 / 10  # kg
+        self.m_SI = self.m_e_SI / 18  # kg
         self.mu_B_SI = 9.2740100783e-24
         self.lattice_size_SI = self.total_length_SI / self.number_of_lattices
         self.z_SI = np.arange(-self.total_length_SI / 2, self.total_length_SI / 2, self.lattice_size_SI,
-                              dtype=np.double) # in m
+                              dtype=np.double)  # in m
 
         self.B_0_SI = 5e-3  # in T
         self.g = 2
 
         # Units in eV
-        self.E_sl_eV = 1e-6 # in eV
-        self.omega_0_eV = 1e-3 # in eV
-        self.eV_0_eV = 1e-6 # in eV
+        self.E_sl_eV = 1e-6  # in eV
+        self.omega_0_eV = 1e-3  # in eV
+        self.eV_0_eV = 1e-3  # in eV
         # Constants in a.u.
         self.hbar_au = 1
         self.m_au = self.m_SI / self.m_e_SI
@@ -144,33 +145,27 @@ class System:
 
         file_name = self.magnetic_field_file
 
-        f = np.load("./magnetic-field-simulations/Simulation-20-03-22/{}.out/B_eff000000.npy".format(file_name))
+        # f = np.load("/content/drive/My Drive/{}".format(file_name))
+        f = np.load("{}".format(file_name))
 
         # Effective magnetic field vectors across the wire
         B_x = f[0, 1, 0:100, 149]
         B_y = f[1, 1, 0:100, 149]
         B_z = f[2, 1, 0:100, 149]
 
-        fig = plt.figure()
+        if self.evolve_state == False:
+          fig = plt.figure()
 
-        plt.plot(self.z_SI, B_x, label="$B_x$")
-        plt.plot(self.z_SI, B_y, label="$B_z$")
-        plt.plot(self.z_SI, B_z, label="$B_y$")
-        plt.ylabel("Effective Magnetic Field Strength (T)")
-        plt.xlabel("$z$ (m)")
-        plt.legend()
-        plt.savefig("./figures/{}.eps".format(file_name))
-        plt.close(fig)
+          plt.plot(self.z_SI, B_x, label="$B_x$")
+          plt.plot(self.z_SI, B_y, label="$B_z$")
+          plt.plot(self.z_SI, B_z, label="$B_y$")
+          plt.ylabel("Effective Magnetic Field Strength (T)")
+          plt.xlabel("$z$ (m)")
+          plt.legend()
+          plt.savefig("./magnetic-fields.eps")
+          plt.close(fig)
 
         return B_x, B_z, B_y
-
-
-
-
-
-
-
-
 
     def potential(self, z, time):  # Infinite square well
         """
@@ -202,6 +197,45 @@ class System:
         (z,) = site.pos
         return (-self.total_length_au / 2 <= z < self.total_length_au / 2)
 
+    def B_function(self, z):
+        """
+        Function to get the Hamiltonian term due to the magnetic field in the z-direction
+        :param z: the position along the quantum wire
+        :return: the Hamiltonian term
+        """
+        if self.magnetic_field_file != "none":  # if the user provides a magnetic field file
+            index = np.around(z, 3) == np.around(self.z_au, 3)  # generate an array of booleans where the
+            # true value coincides to the position of the z-coordinate within the array
+            # found 3 d.p. by testing (not sure if this is the best way)
+            return -self.g * self.mu_B_au * self.tesla_to_au(
+                self.B_z[index]) * self.hbar_au / 2  # use this array of booleans to extraact the relevant magnetic field
+        else:
+            return -self.g * self.mu_B_au * self.B_0_au * self.hbar_au / 2
+
+    def C_function(self, z):
+        """
+        Function to get the Hamiltonian term due to the magnetic field in the x-direction
+        :param z: the position along the quantum wire
+        :return: the Hamiltonian term
+        """
+        if self.magnetic_field_file != "none":  # if the user provides a magnetic field file
+            index = np.around(z, 3) == np.around(self.z_au, 3)
+            return -self.g * self.mu_B_au * self.tesla_to_au(self.B_x[index]) * self.hbar_au / 2
+        else:
+            return -self.b_sl_au * z
+
+    def D_function(self, z):
+        """
+        Function to get the Hamiltonian term due to the magnetic field in the y-direction
+        :param z: the position along the quantum wire
+        :return: the Hamiltonian term
+        """
+        if self.magnetic_field_file != "none":  # if the user provides a magnetic field file
+            index = np.around(z, 3) == np.around(self.z_au, 3)
+            return -self.g * self.mu_B_au * self.tesla_to_au(self.B_y[index]) * self.hbar_au / 2
+        else:
+            return 0
+
     def make_system(self):
         """
         Function to create the system
@@ -225,53 +259,16 @@ class System:
         # kwant.plot(self.syst, file='./figures/shape.png')
         self.syst = self.syst.finalized()
 
-        self.A_constant = self.hbar_au ** 2 / (2 * self.m_au) # coefficient for the kinetic energy term
-        if self.magnetic_field_file != "none": # if the user provides a magnetic field file
-            B_x, B_y, B_z = self.import_mumax3_simulations() # import the magnetic fields
+        self.A_constant = self.hbar_au ** 2 / (2 * self.m_au)  # coefficient for the kinetic energy term
+        if self.magnetic_field_file != "none":  # if the user provides a magnetic field file
+            self.B_x, self.B_y, self.B_z = self.import_mumax3_simulations()  # import the magnetic fields
 
 
-        def B_function(z):
-            """
-            Function to get the Hamiltonian term due to the magnetic field in the z-direction
-            :param z: the position along the quantum wire
-            :return: the Hamiltonian term
-            """
-            if self.magnetic_field_file != "none": # if the user provides a magnetic field file
-                index = np.around(z, 3) == np.around(self.z_au, 3) # generate an array of booleans where the
-                # true value coincides to the position of the z-coordinate within the array
-                # found 3 d.p. by testing (not sure if this is the best way)
-                return -self.g * self.mu_B_au * self.tesla_to_au(B_z[index]) * self.hbar_au / 2 # use this array of booleans to extraact the relevant magnetic field
-            else:
-                return -self.g * self.mu_B_au * self.B_0_au * self.hbar_au / 2
-
-        def C_function(z):
-            """
-            Function to get the Hamiltonian term due to the magnetic field in the x-direction
-            :param z: the position along the quantum wire
-            :return: the Hamiltonian term
-            """
-            if self.magnetic_field_file != "none": # if the user provides a magnetic field file
-                index = np.around(z, 3) == np.around(self.z_au, 3)
-                return -self.g * self.mu_B_au * self.tesla_to_au(B_x[index]) * self.hbar_au / 2
-            else:
-                return -self.b_sl_au * z
-
-        def D_function(z):
-            """
-            Function to get the Hamiltonian term due to the magnetic field in the y-direction
-            :param z: the position along the quantum wire
-            :return: the Hamiltonian term
-            """
-            if self.magnetic_field_file != "none": # if the user provides a magnetic field file
-                index = np.around(z, 3) == np.around(self.z_au, 3)
-                return -self.g * self.mu_B_au * self.tesla_to_au(B_y[index]) * self.hbar_au / 2
-            else:
-                return 0
 
         # import these function and coefficients for use in the full Hamiltonian used to define the system
-        self.params = dict(A=self.A_constant, V=self.potential, B=B_function, C=C_function, D=D_function)
+        self.params = dict(A=self.A_constant, V=self.potential, B=self.B_function, C=self.C_function, D=self.D_function)
 
-        self.tparams = self.params.copy() # copy the params array
+        self.tparams = self.params.copy()  # copy the params array
         self.tparams['time'] = 0  # add another parameter, with the initial time = 0
         print("System intialised.")
 
@@ -363,7 +360,6 @@ class System:
         print("E_1 is", y[0], "eV.")
         print("E_2 is", y[1], "eV.")
 
-
         # Plot the energies of the different levels.
         plt.plot([0, 1], [y[0], y[0]], label=r"$G_-$")
         plt.plot([0, 1], [y[1], y[1]], label=r"$G_+$")
@@ -377,8 +373,9 @@ class System:
         print("Plot of eigenenergies at t=0 saved.")
         return y
 
-    def evolve(self, time_steps=100):
+    def evolve(self, time_steps=1000):
         timestr = timelib.strftime("%Y%m%d-%H%M%S")
+        self.evolve_state = True
 
         def x_onsite(site):  # function to compute the position operator matrix.
             return [site.pos[0]] * np.identity(2)
@@ -418,7 +415,7 @@ class System:
         E_x = np.real(2 * self.eV_0_au * rho_x_2_1 / self.total_length_au)
         self.t_pi = 2 * np.pi / E_x  # compute t_pi the time required for the state to go from spin-up to spin-down.
 
-        total_osc_time = self.t_pi
+        total_osc_time = 0.01 * self.t_pi
 
         # compute oscillation times.
         times_au = np.linspace(0, total_osc_time, num=time_steps)
@@ -454,11 +451,12 @@ class System:
         }
         print("Simulation starting with", time_steps, "time steps from 0.0 to", total_osc_time, "a.u.")
 
-
         for time in times_au:
             print("Evolving state to time", time, "a.u.")
-            psi.evolve(time) # evolved the wavefunction according to TDSE to time
-            density = np.abs(self.spin_up_state.evaluate(density_operator)) ** 2 # compute PDF
+            psi.evolve(time)  # evolved the wavefunction according to TDSE to time
+            density = np.abs(self.spin_up_state.evaluate(density_operator)) ** 2  # compute PDF
+            average_eff_B_field_au = np.trapz(density * eff_B_field_au,
+                                              x=self.z_au)  # compute the expectation of the slanted field.
             average_eff_B_field_au = np.trapz(density * eff_B_field_au,
                                               x=self.z_au)  # compute the expectation of the slanted field.
 
@@ -472,6 +470,9 @@ class System:
                 'time': time,
                 'pdf': density.tolist(),
                 'B_x': average_eff_B_field_au,
+                'B_y': average_eff_B_field_au,
+                'B_z': average_eff_B_field_au,
+
                 'rho_sx': spin_x,
                 'rho_sy': spin_y,
                 'rho_sz': spin_z,
@@ -480,8 +481,13 @@ class System:
         json_string = json.dumps(data)
 
         # save the simulation data
-        with open('/content/drive/My Drive/{}.json'.format(timestr), 'w') as outfile:
+        # with open('/content/drive/My Drive/{}.json'.format(timestr), 'w') as outfile:
+        #     outfile.write(json_string)
+
+        with open('{}.json'.format(timestr), 'w') as outfile:
             outfile.write(json_string)
+
+        self.evolve_state = False
 
         return True
 
@@ -492,7 +498,7 @@ class System:
         :return:
         """
 
-        with open('./evolve-output/{}'.format(file_name)) as json_file:
+        with open('./evolve-output/{}.json'.format(file_name)) as json_file:
             data = json.load(json_file)
         folder_path = "./results/{}".format(file_name)
         if os.path.isdir(folder_path) == False:
@@ -504,7 +510,7 @@ class System:
         rho_sz_list = []
         B_x_list = []
         pdf_list = []
-        parameters = { # from the imported data extract the relevant params and convert to SI units
+        parameters = {  # from the imported data extract the relevant params and convert to SI units
             'B_0': self.au_to_tesla(data['B_0']),
             'lattice_points': data['lattice_points'],
             'length': self.au_to_m(data['length']),
@@ -520,11 +526,11 @@ class System:
         json_string = json.dumps(parameters)
 
         with open('{}/parameters.json'.format(folder_path), 'w') as outfile:
-            outfile.write(json_string) # save the params
+            outfile.write(json_string)  # save the params
 
         print("Parameters saved.")
 
-        for state in data["states"]: # for each of the different states/times
+        for state in data["states"]:  # for each of the different states/times
             # extract the quantities and put them in their own lists
             times.append(state['time'])
             rho_sx_list.append(state['rho_sx'])
@@ -539,7 +545,6 @@ class System:
 
         fontsize = 16
 
-
         # plot the pauli spin matrices expectation values
         spin_expectation_fig, ax = plt.subplots(figsize=(10, 6))
         plt.rcParams.update({'font.size': fontsize})
@@ -552,7 +557,6 @@ class System:
         plt.savefig('{}/spin-expectations.eps'.format(folder_path), bbox_inches='tight')
         plt.close(spin_expectation_fig)
         print("Plot of spin expectations vs. time saved.")
-
 
         # plot the magnetic field in the x-direction
         mag_field_fig, ax = plt.subplots(figsize=(10, 6))
@@ -679,10 +683,10 @@ def main():
     lattices = 100  # number of lattice points
 
     potential = 0  # infinite square-well potential
-    magnetic_field_file = "simulation-0-y-shifted-0nm-right"
-    system = System("((A * k_z**2) + V(z, time)) * identity(2) + B(z) * sigma_z + C(z) * sigma_x + D(z) * sigma_x",
-                    pertubation_type="cos", number_of_lattices=lattices,
-                    potential_type=potential, magnetic_field_file=magnetic_field_file) # call system objecy
+    magnetic_field_file = "B_eff000000.npy"
+    system = System("((A * k_z**2) + V(z, time)) * identity(2) + B(z) * sigma_z + C(z) * sigma_x + D(z) * sigma_y",
+                    pertubation_type="sin", number_of_lattices=lattices,
+                    potential_type=potential, magnetic_field_file=magnetic_field_file)  # call system objecy
     system.make_system()
 
     # Run these both before you evolve.
@@ -690,8 +694,8 @@ def main():
     system.initial_pdfs()
 
     system.evolve(100)
-    system.import_mumax3_simulations()
-    system.visualise("20220321-125400.json")
+    # # system.import_mumax3_simulations()
+    # system.visualise("20220321-160930")
 
 
 if __name__ == '__main__':
