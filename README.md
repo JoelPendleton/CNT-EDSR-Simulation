@@ -39,7 +39,7 @@ conda install tkwant -c conda-forge
 
 Animation of the probability density function as time increases 
 
-![PDF](https://github.com/JoelPendleton/CNT-EDSR-Simulation/blob/master/results/20220309-135220/animation.mp4)
+![PDF](https://github.com/JoelPendleton/CNT-EDSR-Simulation/blob/a11792c4d021690deb1b0aad93a96bb2b1750136/results/20220309-135220/animation.mp4)
 
 
 
