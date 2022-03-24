@@ -37,7 +37,7 @@ conda install tkwant -c conda-forge
 
 ## Example Plot
 
-Animation of the probability density function as time increases 
+Animation produced by simulation
 
 ![PDF](https://user-images.githubusercontent.com/11929366/159930136-39123816-2229-4735-9ed7-acb3d638ef2d.mp4)
 
