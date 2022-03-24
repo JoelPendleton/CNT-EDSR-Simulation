@@ -3,3 +3,5 @@
 .ipynb_checkpoints
 .magnetic-field-simulations
 .magnetic-field-simulations/*
+.results
+.results/*

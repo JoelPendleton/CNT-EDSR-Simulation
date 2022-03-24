@@ -40,7 +40,7 @@ class System:
         self.a_0_SI = 5.2917721090380e-11
         self.total_length_SI = 0.66e-6
         self.m_e_SI = 9.11e-31
-        self.m_SI = self.m_e_SI / 18  # kg
+        self.m_SI = self.m_e_SI / 10 # kg
         self.mu_B_SI = 9.2740100783e-24
         self.lattice_size_SI = self.total_length_SI / self.number_of_lattices
         self.z_SI = np.arange(-self.total_length_SI / 2, self.total_length_SI / 2, self.lattice_size_SI,
@@ -509,6 +509,9 @@ class System:
         rho_sy_list = []
         rho_sz_list = []
         B_x_list = []
+        B_y_list = []
+        B_z_list = []
+
         pdf_list = []
         parameters = {  # from the imported data extract the relevant params and convert to SI units
             'B_0': self.au_to_tesla(data['B_0']),
@@ -537,6 +540,9 @@ class System:
             rho_sy_list.append(state['rho_sy'])
             rho_sz_list.append(state['rho_sz'])
             B_x_list.append(state['B_x'])
+            B_y_list.append(state['B_y'])
+            B_z_list.append(state['B_z'])
+
             pdf_list.append(state['pdf'])
 
         times_au = times
@@ -561,6 +567,9 @@ class System:
         # plot the magnetic field in the x-direction
         mag_field_fig, ax = plt.subplots(figsize=(10, 6))
         plt.plot(times_SI, B_x_list, label=r'$\langle B_x \rangle$')
+        plt.plot(times_SI, B_y_list, label=r'$\langle B_y \rangle$')
+        plt.plot(times_SI, B_z_list, label=r'$\langle B_z \rangle$')
+
         plt.legend(fontsize=fontsize, loc="upper right")
         ax.set_xlabel('$t$ (s)', fontsize=fontsize)
         ax.tick_params(axis='both', which='major', labelsize=fontsize)
@@ -683,19 +692,19 @@ def main():
     lattices = 100  # number of lattice points
 
     potential = 0  # infinite square-well potential
-    magnetic_field_file = "B_eff000000.npy"
+    magnetic_field_file = "magnetic-field-simulations/Simulation-20-03-22/simulation-0-z-shifted-0nm-right.out/B_eff000000.npy"
     system = System("((A * k_z**2) + V(z, time)) * identity(2) + B(z) * sigma_z + C(z) * sigma_x + D(z) * sigma_y",
                     pertubation_type="sin", number_of_lattices=lattices,
                     potential_type=potential, magnetic_field_file=magnetic_field_file)  # call system objecy
-    system.make_system()
+    # system.make_system()
 
     # Run these both before you evolve.
-    system.initial_energies()
-    system.initial_pdfs()
-
-    system.evolve(100)
+    # system.initial_energies()
+    # system.initial_pdfs()
+    #
+    # system.evolve(100)
     # # system.import_mumax3_simulations()
-    # system.visualise("20220321-160930")
+    system.visualise("20220324-115756")
 
 
 if __name__ == '__main__':
