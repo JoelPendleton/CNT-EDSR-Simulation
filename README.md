@@ -6,7 +6,7 @@ Theory based on '_Coherent Single Electron Spin Control in a Slanting Zeeman Fie
 * https://kwant-project.org
 * https://tkwant.kwant-project.org
 
-## My Development Environment
+## Installation 
 **docker images: joelpendleton/cnt-edsr-simulation**   
 
 I recommend using my docker image by running the following:
@@ -35,11 +35,34 @@ conda install -c intel mpi4py
 conda install tkwant -c conda-forge
 ```
 
-## Example Plot
+## Directories
 
-Animation produced by simulation
+* ```evolve-output/``` - the files produced by the the time evolution of the simulator.
+  * Each file is named according the time of the simulation was initiated.
+  * Each file is a json object with the following general structure
+  ```
+  {{  
+            'B_0': #,
+            'lattice_points': ,
+            'length': s,
+            'eV_0': self.hartree_to_ev(data['eV_0']),
+            'E_sl': self.hartree_to_ev(data['E_sl']),
+            'E_x': self.hartree_to_ev(data['E_x']),
+            'E_z': self.hartree_to_ev(data['E_z']),
+            'perturbation': data['perturbation'],
+            'potential_type': data['potential_type'],
+            'effective_mass': data['effective_mass'],
+            'states': 
+        }
+  ```
+* 
 
-![PDF](https://user-images.githubusercontent.com/11929366/159930136-39123816-2229-4735-9ed7-acb3d638ef2d.mp4)
+
+## Variables
 
 
+## Systen Class
 
+### Class Functions
+
+### Class Variables
