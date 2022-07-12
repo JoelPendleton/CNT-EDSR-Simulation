@@ -1,5 +1,5 @@
-# CNT EDSR-Simulation
-A simulation of EDSR in a carbon nanotube using kwant package.
+# Electric Dipole Spin Resonance Simulator
+A simulation of EDSR in a carbon nanotube Double Quantum Dot using kwant package.
 
 Theory based on '_Coherent Single Electron Spin Control in a Slanting Zeeman Field_' by Tokura et. al.
 
