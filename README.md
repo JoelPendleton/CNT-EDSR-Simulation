@@ -130,12 +130,20 @@ conda install tkwant -c conda-forge
   * `spin-expectations.eps`: plot of spin matrix expectation values vs time.
       
 
+## System Class
 
-## Variables
+This class is used to define the system object upon which time-evolution simulations can be executed.
 
+The `__init__` function of the class takes 5 arguments:
+* `hamiltonian`: the full hamiltonian to describe the system.
+* `pertubation_type`: the type of time-dependent potential (either "sin" or "cos").
+* `magnetic_field_file`: path to simulated/real magnetic field file.
+* `number_of_lattices`: the number of lattice points to use in the simulation.
+* `potential_type`: the type of confinement potential to use (either 0, infinite square well or 1, parabolic potential). 
 
-## Systen Class
 
 ### Class Functions
 
 ### Class Variables
+
+The class variables can be overwritten before evolving (simulating) to give your system the desired characteristics.
