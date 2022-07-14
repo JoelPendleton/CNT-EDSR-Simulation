@@ -4,7 +4,7 @@ A simulation of EDSR in a carbon nanotube Double Quantum Dot using kwant package
 Computations are performed in atomic units, and are only converted to SI units 
 through the execution of the visualise function.
 
-Theory based on '_Coherent Single Electron Spin Control in a Slanting Zeeman Field_' by Tokura et. al.
+Theory largely based on '_Coherent Single Electron Spin Control in a Slanting Zeeman Field_' by Tokura et. al.
 
 * https://kwant-project.org
 * https://tkwant.kwant-project.org
@@ -42,15 +42,16 @@ conda install tkwant -c conda-forge
 
 * ```evolve-output/```: the files produced by the the time evolution of the simulator.
   * Each file is named according the time of the simulation was initiated.
-  * Each file is a json object with the following keys
-    * `B_0`: the applied external static field (atomic units)
-    * `lattice_points`: the number of lattice points
+  * Each file is a json object with the following keys.
+    * `B_0`: the applied external static field (atomic units).
+    * `lattice_points`: the number of lattice points.
     * `length`: the length of the carbon nanotube (atomic units)
-    * `E_sl`: the energy associated with the slanted magnetic field (atomic units)
-    * `E_x`: the energy shift associated with the apparent oscillation of the slanted magnetic field (atomic units)
-    * `E_z`: the energy difference between the lowest two eigenstates (atomic units)
-    * `perturbation`: the type of time-dependent perturbation used (sin or cos)
+    * `E_sl`: the energy associated with the slanted magnetic field (atomic units).
+    * `E_x`: the energy shift associated with the apparent oscillation of the slanted magnetic field (atomic units).
+    * `E_delta`: the energy difference between the lowest two eigenstates (atomic units).
+    * `perturbation`: the type of time-dependent perturbation used (sin or cos).
     * `potential_type`: the type of confining potential used (infinite-well or parabolic).
+    * `effective_mass`: effective mass of electrons within quantum dot (atomic units)
     * `E_1`: the lowest energy eigenstate (atomic units).
     * `E_2`: the second lowest energy eigenstate (atomic units).
     * `states`: a list containing the states of the system at each time step during the evolution. </br> Each state contains the following keys:  
@@ -111,9 +112,23 @@ conda install tkwant -c conda-forge
   }
   ```
          
-* `results`: contains files produced by `visualise` function 
-  * `parameters.json`: contains parameters used in simulation converted into SI units.
-  *
+* `results/`: contains files produced by `visualise` function 
+  * `parameters.json`: contains parameters used in simulation converted into interpretable units.
+    * The keys in the json file are as follows
+      * `B_0`: B_0`: the applied external static field (Teslas)
+      * `lattice_points`: : the number of lattice points
+      * `length`:  the length of the carbon nanotube (metres)
+      * `eV_0`: Constant defining the energy of the alternating electric field (electron volts).
+      * `E_sl`: the energy associated with the slanted magnetic field (electron volts).
+      * `E_x`: the energy shift associated with the apparent oscillation of the slanted magnetic field (electron volts).
+      * `E_delta`: the energy difference between the lowest two eigenstates (electron volts).
+      * `perturbation`: the type of time-dependent perturbation used (sin or cos).
+      * `potential_type`: the type of confining potential used (infinite-well or parabolic).
+      * `effective_mass`: effective mass of electrons within quantum dot (atomic units).
+  * `animation.mp4`: animation of the time evolution of the system.
+  * `magnetic-fields.eps`: plot of magnetic fields vs time.
+  * `spin-expectations.eps`: plot of spin matrix expectation values vs time.
+      
 
 
 ## Variables
