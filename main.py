@@ -192,20 +192,20 @@ class System:
         """
         function to define the shape of the scattering region.
         :param site: the current site.
-        :return: the a boolean saying whether the scattering site should be drawn
+        :return: the a boolean saying whether the scattering site should be drawn.
         """
         (z,) = site.pos
         return (-self.total_length_au / 2 <= z < self.total_length_au / 2)
 
 
     def B_z_au_func(self, z):
-        index = np.around(z, 3) == np.around(self.z_au, 3)  # generate an array of booleans where the
+        index = np.around(z, 3) == np.around(self.z_au, 3)  # generate an array of booleans where the current z matches one of the z values in array
         return self.B_z_au[index]
     def B_y_au_func(self, z):
-        index = np.around(z, 3) == np.around(self.z_au, 3)  # generate an array of booleans where the
+        index = np.around(z, 3) == np.around(self.z_au, 3)  
         return self.B_y_au[index]
     def B_x_au_func(self, z):
-        index = np.around(z, 3) == np.around(self.z_au, 3)  # generate an array of booleans where the
+        index = np.around(z, 3) == np.around(self.z_au, 3)  
         return self.B_x_au[index]
 
 
@@ -697,6 +697,7 @@ class System:
         anim.save('{}/animation.mp4'.format(folder_path), writer='ffmpeg')
 
         print("Animation saved.")
+        return True
 
 
 def main():

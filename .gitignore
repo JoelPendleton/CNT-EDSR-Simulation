@@ -6,3 +6,4 @@
 .results
 .results/*
 .evolve-output/
+.index.rst
