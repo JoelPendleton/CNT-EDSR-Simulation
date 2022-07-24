@@ -40,7 +40,7 @@ class System:
         self.a_0_SI = 5.2917721090380e-11
         self.total_length_SI = 0.66e-6
         self.m_e_SI = 9.11e-31
-        self.m_SI = self.m_e_SI / 10 # kg
+        self.m_SI = self.m_e_SI  # kg
         self.mu_B_SI = 9.2740100783e-24
         self.lattice_size_SI = self.total_length_SI / self.number_of_lattices
         self.z_SI = np.arange(-self.total_length_SI / 2, self.total_length_SI / 2, self.lattice_size_SI,
@@ -52,7 +52,7 @@ class System:
         # Units in eV
         self.E_sl_eV = 1e-6  # in eV
         self.omega_0_eV = 1e-3  # in eV
-        self.eV_0_eV = 1e-3  # in eV
+        self.eV_0_eV = 1e-6  # in eV
         # Constants in a.u.
         self.hbar_au = 1
         self.m_au = self.m_SI / self.m_e_SI
@@ -197,44 +197,18 @@ class System:
         (z,) = site.pos
         return (-self.total_length_au / 2 <= z < self.total_length_au / 2)
 
-    def B_function(self, z):
-        """
-        Function to get the Hamiltonian term due to the magnetic field in the z-direction
-        :param z: the position along the quantum wire
-        :return: the Hamiltonian term
-        """
-        if self.magnetic_field_file != "none":  # if the user provides a magnetic field file
-            index = np.around(z, 3) == np.around(self.z_au, 3)  # generate an array of booleans where the
-            # true value coincides to the position of the z-coordinate within the array
-            # found 3 d.p. by testing (not sure if this is the best way)
-            return -self.g * self.mu_B_au * self.tesla_to_au(
-                self.B_z[index]) * self.hbar_au / 2  # use this array of booleans to extraact the relevant magnetic field
-        else:
-            return -self.g * self.mu_B_au * self.B_0_au * self.hbar_au / 2
 
-    def C_function(self, z):
-        """
-        Function to get the Hamiltonian term due to the magnetic field in the x-direction
-        :param z: the position along the quantum wire
-        :return: the Hamiltonian term
-        """
-        if self.magnetic_field_file != "none":  # if the user provides a magnetic field file
-            index = np.around(z, 3) == np.around(self.z_au, 3)
-            return -self.g * self.mu_B_au * self.tesla_to_au(self.B_x[index]) * self.hbar_au / 2
-        else:
-            return -self.b_sl_au * z
+    def B_z_au_func(self, z):
+        index = np.around(z, 3) == np.around(self.z_au, 3)  # generate an array of booleans where the
+        return self.B_z_au[index]
+    def B_y_au_func(self, z):
+        index = np.around(z, 3) == np.around(self.z_au, 3)  # generate an array of booleans where the
+        return self.B_y_au[index]
+    def B_x_au_func(self, z):
+        index = np.around(z, 3) == np.around(self.z_au, 3)  # generate an array of booleans where the
+        return self.B_x_au[index]
 
-    def D_function(self, z):
-        """
-        Function to get the Hamiltonian term due to the magnetic field in the y-direction
-        :param z: the position along the quantum wire
-        :return: the Hamiltonian term
-        """
-        if self.magnetic_field_file != "none":  # if the user provides a magnetic field file
-            index = np.around(z, 3) == np.around(self.z_au, 3)
-            return -self.g * self.mu_B_au * self.tesla_to_au(self.B_y[index]) * self.hbar_au / 2
-        else:
-            return 0
+
 
     def make_system(self):
         """
@@ -259,14 +233,39 @@ class System:
         # kwant.plot(self.syst, file='./figures/shape.png')
         self.syst = self.syst.finalized()
 
-        self.A_constant = self.hbar_au ** 2 / (2 * self.m_au)  # coefficient for the kinetic energy term
         if self.magnetic_field_file != "none":  # if the user provides a magnetic field file
-            self.B_x, self.B_y, self.B_z = self.import_mumax3_simulations()  # import the magnetic fields
+            self.B_x_SI, self.B_y_SI, self.B_z_SI = self.import_mumax3_simulations()  # import the magnetic fields
+            self.B_x_au = self.tesla_to_au(self.B_x_SI)
+            self.B_y_au = self.tesla_to_au(self.B_y_SI)
+            self.B_z_au = self.tesla_to_au(self.B_z_SI)
+            def B_constant(z):
+                return -self.g * self.mu_B_au * self.B_z_au_func(z) * self.hbar_au / 2
+            def C_constant(z):
+                return -self.g * self.mu_B_au * self.B_x_au_func(z) * self.hbar_au / 2
 
+            def D_constant(z):
+                return -self.g * self.mu_B_au * self.B_y_au_func(z) * self.hbar_au / 2
+
+
+        else:
+
+            self.B_y_au = 0
+            self.B_z_au = self.B_0_au
+            def B_constant(z):
+                return  -self.g * self.mu_B_au * self.B_z_au * self.hbar_au / 2
+
+            def C_constant(z):
+                return -self.g * self.mu_B_au * self.b_sl_au * z * self.hbar_au / 2
+
+            def D_constant(z):
+                return -self.g * self.mu_B_au * self.B_y_au * self.hbar_au / 2
+
+
+        A_constant = self.hbar_au ** 2 / (2 * self.m_au)  # coefficient for the kinetic energy term
 
 
         # import these function and coefficients for use in the full Hamiltonian used to define the system
-        self.params = dict(A=self.A_constant, V=self.potential, B=self.B_function, C=self.C_function, D=self.D_function)
+        self.params = dict(A=A_constant, V=self.potential, B=B_constant, C=C_constant, D=D_constant)
 
         self.tparams = self.params.copy()  # copy the params array
         self.tparams['time'] = 0  # add another parameter, with the initial time = 0
@@ -404,18 +403,16 @@ class System:
         self.pulse_frequency_au = omega_res / (
                 2 * np.pi)  # set the frequency of the V_AC(t) to be equal to the res. freq.
 
-        eff_B_field_au = self.b_sl_au * self.z_au  # compute the slanted field at each point along the CNT.
-
         # define the density operator of x
         rho_x = kwant.operator.Density(self.syst, x_onsite, sum=True)
         # compute this density operator on the ground states <2|x|1>:
         rho_x_2_1 = rho_x(psi2, psi1)
 
         # compute the energy E_x
-        E_x = np.real(2 * self.eV_0_au * rho_x_2_1 / self.total_length_au)
+        E_x = np.abs(np.real(2 * self.eV_0_au * rho_x_2_1 / self.total_length_au))
         self.t_pi = 2 * np.pi / E_x  # compute t_pi the time required for the state to go from spin-up to spin-down.
 
-        total_osc_time = 0.01 * self.t_pi
+        total_osc_time =  self.t_pi
 
         # compute oscillation times.
         times_au = np.linspace(0, total_osc_time, num=time_steps)
@@ -441,7 +438,7 @@ class System:
             'eV_0': self.eV_0_au,
             'E_sl': self.E_sl_au,
             'E_x': E_x,
-            'E_z': omega_res,
+            'E_delta': omega_res,
             'perturbation': self.pertubation_type,
             'potential_type': self.potential_text,
             'effective_mass': self.m_au,
@@ -455,11 +452,19 @@ class System:
             print("Evolving state to time", time, "a.u.")
             psi.evolve(time)  # evolved the wavefunction according to TDSE to time
             density = np.abs(self.spin_up_state.evaluate(density_operator)) ** 2  # compute PDF
-            average_eff_B_field_au = np.trapz(density * eff_B_field_au,
-                                              x=self.z_au)  # compute the expectation of the slanted field.
-            average_eff_B_field_au = np.trapz(density * eff_B_field_au,
-                                              x=self.z_au)  # compute the expectation of the slanted field.
 
+            if self.magnetic_field_file != "none":
+                average_eff_B_field_au_x = np.trapz(density * self.B_x_au_func(self.z_au),
+                                                  x=self.z_au)  # compute the expectation of the slanted field.
+                average_eff_B_field_au_y = np.trapz(density * self.B_y_au_func(self.z_au),
+                                                  x=self.z_au)  # compute the expectation of the slanted field.
+                average_eff_B_field_au_z = np.trapz(density * self.B_z_au_func(self.z_au),
+                                                  x=self.z_au)  # compute the expectation of the slanted field.
+            else:
+                average_eff_B_field_au_x = np.trapz(density * self.b_sl_au * self.z_au,
+                                                  x=self.z_au)  # compute the expectation of the slanted field.
+                average_eff_B_field_au_y = 0
+                average_eff_B_field_au_z = self.B_0_au
             # compute the expectations of the spin operators on the evolved state and store their values.
             spin_z = np.real(self.spin_up_state.evaluate(rho_sz))
             spin_y = np.real(self.spin_up_state.evaluate(rho_sy))
@@ -469,9 +474,9 @@ class System:
             data['states'].append({
                 'time': time,
                 'pdf': density.tolist(),
-                'B_x': average_eff_B_field_au,
-                'B_y': average_eff_B_field_au,
-                'B_z': average_eff_B_field_au,
+                'B_x': average_eff_B_field_au_x,
+                'B_y': average_eff_B_field_au_y,
+                'B_z': average_eff_B_field_au_z,
 
                 'rho_sx': spin_x,
                 'rho_sy': spin_y,
@@ -520,7 +525,7 @@ class System:
             'eV_0': self.hartree_to_ev(data['eV_0']),
             'E_sl': self.hartree_to_ev(data['E_sl']),
             'E_x': self.hartree_to_ev(data['E_x']),
-            'E_z': self.hartree_to_ev(data['E_z']),
+            'E_delta': self.hartree_to_ev(data['E_delta']),
             'perturbation': data['perturbation'],
             'potential_type': data['potential_type'],
             'effective_mass': data['effective_mass']
@@ -559,6 +564,8 @@ class System:
         plt.plot((times_SI), rho_sz_list, label='$\\langle Z \\rangle$')
         plt.legend(fontsize=fontsize, loc="upper right")
         ax.set_xlabel('$t$ (s)', fontsize=fontsize)
+        ax.set_ylabel('Expectation Value', fontsize=fontsize)
+
         ax.tick_params(axis='both', which='major', labelsize=fontsize)
         plt.savefig('{}/spin-expectations.eps'.format(folder_path), bbox_inches='tight')
         plt.close(spin_expectation_fig)
@@ -623,6 +630,7 @@ class System:
         ax1.set_xlim(-z_max_SI, z_max_SI)
         ax1.set_ylim(0, y1_max * 1.5)
         ax1.set_ylabel("$|\psi(z,t)|^2$")
+        ax1.set_xlabel("z ($m$)")
 
         # Potential
         ax2.set_xlim(-z_max_SI, z_max_SI)
@@ -634,6 +642,9 @@ class System:
         # Expectations
         ax3.set_xlim(0, times_SI[-1])
         ax3.set_ylim(-1.0, 1.0)
+        ax3.set_ylabel("Expectation Value")
+        ax3.set_xlabel("t (s)")
+
 
         # Magnetic Field
 
@@ -692,19 +703,19 @@ def main():
     lattices = 100  # number of lattice points
 
     potential = 0  # infinite square-well potential
-    magnetic_field_file = "magnetic-field-simulations/Simulation-20-03-22/simulation-0-z-shifted-0nm-right.out/B_eff000000.npy"
+    magnetic_field_file = "B_eff000000.npy"
     system = System("((A * k_z**2) + V(z, time)) * identity(2) + B(z) * sigma_z + C(z) * sigma_x + D(z) * sigma_y",
                     pertubation_type="sin", number_of_lattices=lattices,
-                    potential_type=potential, magnetic_field_file=magnetic_field_file)  # call system objecy
-    # system.make_system()
+                    potential_type=potential)#, magnetic_field_file=magnetic_field_file)  # call system objecy
+    system.make_system()
 
     # Run these both before you evolve.
     # system.initial_energies()
     # system.initial_pdfs()
     #
     # system.evolve(100)
-    # # system.import_mumax3_simulations()
-    system.visualise("20220324-115756")
+    # system.import_mumax3_simulations()
+    system.visualise("20220309-135220")
 
 
 if __name__ == '__main__':
