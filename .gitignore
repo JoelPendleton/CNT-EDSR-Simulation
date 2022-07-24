@@ -5,3 +5,4 @@
 .magnetic-field-simulations/*
 .results
 .results/*
+.evolve-output/
