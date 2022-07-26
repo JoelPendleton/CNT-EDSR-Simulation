@@ -1,9 +1,9 @@
 .idea
 .DS_STORE
 .ipynb_checkpoints
-.magnetic-field-simulations
-.magnetic-field-simulations/*
-.results
-.results/*
-.evolve-output/
-.index.rst
+magnetic-field-simulations
+magnetic-field-simulations/*
+results
+results/*
+evolve-output/
+index.rst
