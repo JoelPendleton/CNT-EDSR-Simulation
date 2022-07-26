@@ -135,7 +135,7 @@ conda install tkwant -c conda-forge
 This class is used to define the system object upon which time-evolution simulations can be executed.
 
 The `__init__` function
-* <u>Arguments</u>:
+* <b>Arguments</b>:
 
     * `hamiltonian`: the full hamiltonian to describe the system.
     * `pertubation_type`: the type of time-dependent potential (either "sin" or "cos").
@@ -148,126 +148,170 @@ The `__init__` function
 
 Within the class there are a variety of functions. They are described here
 
-* `cosine_v_ac(self, time, z, eV_0_au, pulse_frequency_au, total_length_au)` this function defines the alternating potential associated the alternating electric field as a cosine function. 
-    * <u>Arguments</u>:
-
+* `cosine_v_ac(time, z, eV_0_au, pulse_frequency_au, total_length_au)` </br>
+</br> Function to define the alternating potential associated the alternating electric field as a cosine function. 
+    * <b>Arguments</b>:
         * `time`: the current time step of the simulation
         * `z`: the positions along the nanotube
         * `eV_0_au`: Constant defining the energy of the alternating electric field (atomic units), i.e. the strength of the electric field.
         * `pulse_frequency_au`: the frequency of oscillation of the alternating potential.
         * `total_length_au`: the total length of the nanotube in atomic units.
-    * <u>Returns:</u> the alternating potential at a given time across the nanotube.
+    * <b>Returns:</b> the alternating potential at a given time across the nanotube.
+</br></br>
 
-* `sine_v_ac(self, time, z, eV_0_au, pulse_frequency_au, total_length_au)` this function defines the alternating potential associated the alternating electric field as a sine function. 
-    * <u>Arguments</u>:
 
+* `sine_v_ac(time, z, eV_0_au, pulse_frequency_au, total_length_au)` </br> 
+</br>Function to defines the alternating potential associated the alternating electric field as a sine function. 
+    * <b>Arguments</b>:
         * `time`: the current time step of the simulation
         * `z`: the positions along the nanotube
         * `eV_0_au`: Constant defining the energy of the alternating electric field (atomic units), i.e. the strength of the electric field.
         * `pulse_frequency_au`: the frequency of oscillation of the alternating potential.
         * `total_length_au`: the total length of the nanotube in atomic units.
-    * <u>Returns:</u> the alternating potential at a given time across the nanotube.
+    * <b>Returns</b>: the alternating potential at a given time across the nanotube.
+</br></br>
 
-
-* `tesla_to_au(self, tesla)` this function converts the magnetic field strength from teslas to atomic units.
-    * <u>Arguments</u>:
+* `tesla_to_au(tesla)` </br> 
+</br> Function to convert the magnetic field strength from teslas to atomic units. 
+    * <b>Arguments</b>:
         * `tesla`: the magnetic field strength in teslas to be converted.
-    * <u>Returns:</u> the magnetic field strength in atomic units.
+    * <b>Returns:</b> the magnetic field strength in atomic units.
+</br></br>
 
 
-* `au_to_tesla(self, au)` this function converts the magnetic field strength from atomic units to teslas.
-    * <u>Arguments</u>:
+* `au_to_tesla(au)` </br> 
+</br>Function to convert the magnetic field strength from atomic units to teslas.
+    * <b>Arguments</b>:
         * `au`: the magnetic field strength in atomic units to be converted.
-    * <u>Returns:</u> the magnetic field strength in teslas.
+    * <b>Returns:</b> the magnetic field strength in teslas.
+</br></br>
 
-* `second_to_au(self, time)` this function converts the time the simulation has been running from seconds to atomic units.
-    * <u>Arguments</u>:
+
+* `second_to_au(time)` </br> 
+</br> Function to convert the time the simulation has been running from seconds to atomic units.
+    * <b>Arguments</b>:
         * `time`: the time the simulation has evolved for in seconds.
-    * <u>Returns:</u> the time the simulation has evolved for in atomic units.
+    * <b>Returns:</b> the time the simulation has evolved for in atomic units.
+</br></br>
 
 
 
-* `au_to_second(self, time)` this function converts the time the simulation has been running from atomic units to seconds.
-    * <u>Arguments</u>:
+* `au_to_second(time)`  </br> 
+</br>Function to convert the time the simulation has been running from atomic units to seconds.
+    * <b>Arguments</b>:
         * `time`: the time the simulation has evolved for in atomic units.
-    * <u>Returns:</u> the time the simulation has evolved for in seconds.
+    * <b>Returns:</b> the time the simulation has evolved for in seconds.
+</br></br>
 
 
-* `hartree_to_ev(self, hartree)` this function converts energies from hartrees (atomic units) to electron volts.
-    * <u>Arguments</u>:
+
+* `hartree_to_ev(hartree)` </br> 
+</br> Function to convert energies from hartrees (atomic units) to electron volts.
+    * <b>Arguments</b>:
         * `hartree`: the energy in hartrees.
-    * <u>Returns:</u> the energy in electron volts.
+    * <b>Returns:</b> the energy in electron volts.
+</br></br>
 
-* `ev_to_hartree_(self, ev)` this function converts energies from electron volts to hartrees (atomic units).
-    * <u>Arguments</u>:
+
+* `ev_to_hartree_(ev)` </br> 
+</br> Function to convert energies from electron volts to hartrees (atomic units).
+    * <b>Arguments</b>:
         * `ev`: the energy in electron volts.
-    * <u>Returns:</u> the energy in hartrees.
+    * <b>Returns:</b> the energy in hartrees.
+</br></br>
 
 
-* `au_to_m(self, au)` this function converts lengths from atomic units to metres.
-    * <u>Arguments</u>:
+* `au_to_m(au)` </br> 
+</br> Function to convert lengths from atomic units to metres.
+    * <b>Arguments</b>:
         * `au`: the length in atomic units.
-    * <u>Returns:</u> the length in metres.
+    * <b>Returns:</b> the length in metres.
+</br></br>
 
-* `m_to_au(self, m)` this function converts lengths from metres to atomic units.
-    * <u>Arguments</u>:
+* `m_to_au(m)` </br> 
+</br> Function to convert lengths from metres to atomic units.
+    * <b>Arguments</b>:
         * `m`: the length in metres.
-    * <u>Returns:</u> the length in atomic units.
+    * <b>Returns:</b> the length in atomic units.
+</br></br>
 
 
-* `hz_to_au(self, hz)` this function converts a frequency from hertz to atomic units.
-    * <u>Arguments</u>:
+* `hz_to_au(hz)` </br> 
+</br> Function to convert a frequency from hertz to atomic units.
+    * <b>Arguments</b>:
         * `hz`: the frequency in hertz.
-    * <u>Returns:</u> the frequency in atomic units.
+    * <b>Returns:</b> the frequency in atomic units.
 
-* `import_mumax3_simulations(self)` this function imports mumax3 simulation files for use within the EDSR simulator.
-    * <u>Returns:</u> 
+* `import_mumax3_simulations()` </br></br>
+Function to import mumax3 simulation files for use within the EDSR simulator.
+    * <b>Returns:</b> 
     `B_x, B_y, B_z` the x,y and z components of the imported magnetic field.
+</br></br>
 
  
-* `potential(self, z, time)` this function combines a confinement potential, which is either a parabolic or hardwall potential, with the value for the alternating potential associated with the alternating electric field (at a given time).
-    * <u>Arguments</u>:
+* `potential(z, time)` </br></br>
+Function to combine a confinement potential, which is either a parabolic or hardwall potential, with the value for the alternating potential associated with the alternating electric field (at a given time).
+    * <b>Arguments</b>:
         * `z`: the positions along the carbon nanotube.
         * `time`: the time the simulation has evolved for in atomic units.
 
-    * <u>Returns:</u> `total_potential` the total potential experienced along the carbon nanotube.
+    * <b>Returns:</b>  `total_potential` the total potential experienced along the carbon nanotube.
+</br></br>
 
 
 * `kwant_shape(self, site)` function to define the shape of the scattering region of nanotube,
-    * <u>Arguments</u>:
+    * <b>Arguments</b>:
         * `site`: the current site.
 
-    * <u>Returns:</u> a boolean which is true if the scattering site should be drawn.
-
-* `make_system(self)` function to build the system in kwant and define the initial state of a variety of variables.
-    * <u>Returns:</u> `self.syst` the built system object produced by kwant.
-
-* `eigenstates(self)` function to compute the eigenstates, i.e. eigenvalues and eigenvectors for the defined system at some current time.
-    * <u>Returns:</u> `eigenvalues, eigenvectors` the eigenvalues and eigenvectors associated with the system at some time.
-
-* `eigenstates(self)` function to compute the eigenstates, i.e. eigenvalues and eigenvectors for the defined system at some current time.
-    * <u>Returns:</u> `eigenvalues, eigenvectors` the eigenvalues and eigenvectors associated with the system at some time.
+    * <b>Returns:</b> a boolean which is true if the scattering site should be drawn.
+</br></br>
 
 
-* `initial_pdfs(self)` Function to show the initial probability density functions of the spin-up and spin-down ground state (at time = 0). Saves plot to results folder.
-    * <u>Returns:</u> `density_1, density_2` the initial probability density functions of the spin-up and spin-down ground state.
+* `make_system(self)` </br></br>
+Function to build the system in kwant and define the initial state of a variety of variables.
+    * <b>Returns:</b> `self.syst` the built system object produced by kwant.
+</br></br>
 
-* `initial_energies(self)`Function to display initial energy levels of the system in eV.  Saves plot to results folder.
-    * <u>Returns:</u> `y` a list of the eigenenergies of the system at time = 0.
+
+* `eigenstates(self)` </br></br>
+Function to compute the eigenstates, i.e. eigenvalues and eigenvectors for the defined system at some current time.
+    * <b>Returns:</b> `eigenvalues, eigenvectors` the eigenvalues and eigenvectors associated with the system at some time.
+</br></br>
 
 
-* `evolve(self, time_steps=1000)` function to evolve/simulate the defined system through the pi rotation time.  Saves data to evolve-output folder.
-    * <u>Arguments</u>:
+* `eigenstates(self)` </br></br>
+Function to compute the eigenstates, i.e. eigenvalues and eigenvectors for the defined system at some current time.
+    * <b>Returns:</b> `eigenvalues, eigenvectors` the eigenvalues and eigenvectors associated with the system at some time.
+</br></br>
+
+
+* `initial_pdfs(self)` </br></br>
+Function to show the initial probability density functions of the spin-up and spin-down ground state (at time = 0). Saves plot to results folder.
+    * <b>Returns:</b> `density_1, density_2` the initial probability density functions of the spin-up and spin-down ground state.
+</br></br>
+
+* `initial_energies(self)` </br></br>
+Function to display initial energy levels of the system in eV.  Saves plot to results folder.
+    * <b>Returns:</b> `y` a list of the eigenenergies of the system at time = 0.
+</br></br>
+
+
+* `evolve(self, time_steps=1000)` </br></br>
+Function to evolve/simulate the defined system through the pi rotation time.  Saves data to evolve-output folder.
+    * <b>Arguments</b>:
         * `time_steps`: the number of time divisions/steps to use for the simulation.
 
-    * <u>Returns:</u> a boolean which is true if the simulation is complete.
+    * <b>Returns:</b> a boolean which is true if the simulation is complete.
+</br></br>
 
 
-* `visualise(self, file_name)` function to visualise / produce plots of the evolved simulation.  Saves plots and animations to results folder.
-    * <u>Arguments</u>:
+* `visualise(self, file_name)` </br></br>
+Function to visualise / produce plots of the evolved simulation.  Saves plots and animations to results folder.
+    * <b>Arguments</b>:
         * `file_name`: the file in which the simulation/evolved data is stored.
 
-    * <u>Returns:</u> a boolean which is true if the visualisation is complete.
+    * <b>Returns:</b> a boolean which is true if the visualisation is complete.
+</br></br>
 
 
 
@@ -275,15 +319,19 @@ Within the class there are a variety of functions. They are described here
 
 These class variables can be overwritten before evolving (simulating) to give your system the desired characteristics.
 
-* `E_sl_eV`  the energy associated with the slanted magnetic field (electron volts).
-* `omega_0_eV`  the energy spacing for the parabolic/harmonic potential (electron volts).
-* `m_SI`  the effective mass of the electron (kg).
-* `B_0_SI`  the external magnetic field, applied in the z-direction, used to induced zeeman splitting (T)
+* `E_sl_eV`: The energy associated with the slanted magnetic field (electron volts).
+* `omega_0_eV`: The energy spacing for the parabolic/harmonic potential (electron volts).
+* `m_SI`: The effective mass of the electron (kg).
+* `B_0_SI`: The external magnetic field, applied in the z-direction, used to induced zeeman splitting (T)
 
-Note: the System objec could be modified so that the above class variables are instead define by passing arguments in the creation of the System class.
+<b>N.B.</b> The System object could be modified so that the above class variables are instead defined by passing arguments in the creation of the System class.
 
 
-## Example of how to use System Class
+## Example of how to use System Class to Perform a Simulation
+
+### Evolution
+
+Here is an example you would evolve the system: 
 
 ```python
 lattices = 100  # number of lattice points
@@ -309,3 +357,22 @@ system.evolve(100)
 # system.visualise(file_name)
 
 ```
+
+### Visualisation
+
+Suppose the above simulation produces an evolution file titled *20220309-135220.json*. The following command will allow you to visualise the output of this evolution.
+
+```python
+system.visualise("20220309-135220")
+```
+
+Plots similar to the following will be saved to `/results` folder.
+
+
+
+## Show output from above code
+
+## Produce 10min video 
+* show installation
+* run using hamiltonian with reference to paper
+* talk about importing magnetic fields and the relevant functions
