@@ -369,9 +369,12 @@ Suppose the above simulation produces an evolution file titled *20220309-135220.
 system.visualise("20220309-135220")
 ```
 
-Plots similar to the following will be saved to `/results` folder:
+The above code similar produces plots in `/results` folder along with an animation. An example of which is shown below:
 
-Show Images
+
+
+https://user-images.githubusercontent.com/11929366/181641119-0a29b718-36b5-45cf-8f36-b9b28647e5b9.mp4
+
 
 
 
