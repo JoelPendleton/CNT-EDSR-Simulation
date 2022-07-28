@@ -374,13 +374,3 @@ The above code similar produces plots in `/results` folder along with an animati
 
 
 https://user-images.githubusercontent.com/11929366/181641119-0a29b718-36b5-45cf-8f36-b9b28647e5b9.mp4
-
-
-
-
-## Show output from above code
-
-## Produce 10min video 
-* show installation
-* run using hamiltonian with reference to paper
-* talk about importing magnetic fields and the relevant functions
