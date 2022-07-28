@@ -354,23 +354,16 @@ system.initial_pdfs()
 
 # Evolve the simulation for 100 time steos
 system.evolve(100)
-
-# file_name = None
-# Visualise the evolution by providing the file name of the generated output
-# system.visualise(file_name)
-
 ```
 
 ### Visualisation
 
-Suppose the above simulation produces an evolution file titled *20220309-135220.json* (example found in this repository). The following command will allow you to visualise the output of this evolution.
+Suppose the above simulation produces an evolution file titled *[20220309-135220.json](./20220309-135220.json)*. The following command will allow you to visualise the output of this evolution.
 
 ```python
 system.visualise("20220309-135220")
 ```
 
-The above code similar produces plots in `/results` folder along with an animation. An example of which is shown below:
-
-
+The visualisationproduces plots in `/results` folder along with an animation. An example of the animation is shown below:
 
 https://user-images.githubusercontent.com/11929366/181641119-0a29b718-36b5-45cf-8f36-b9b28647e5b9.mp4
