@@ -363,7 +363,7 @@ system.evolve(100)
 
 ### Visualisation
 
-Suppose the above simulation produces an evolution file titled *20220309-135220.json*. The following command will allow you to visualise the output of this evolution.
+Suppose the above simulation produces an evolution file titled *20220309-135220.json* (example found in this repository). The following command will allow you to visualise the output of this evolution.
 
 ```python
 system.visualise("20220309-135220")
