@@ -148,7 +148,10 @@ The `__init__` function
 
 Within the class there are a variety of functions. They are described here
 
-* `cosine_v_ac(time, z, eV_0_au, pulse_frequency_au, total_length_au)` </br>
+
+
+* `cosine_v_ac(time, z, eV_0_au, pulse_frequency_au, total_length_au)`
+</br>
 </br> Function to define the alternating potential associated the alternating electric field as a cosine function. 
     * <b>Arguments</b>:
         * `time`: the current time step of the simulation
@@ -366,7 +369,9 @@ Suppose the above simulation produces an evolution file titled *20220309-135220.
 system.visualise("20220309-135220")
 ```
 
-Plots similar to the following will be saved to `/results` folder.
+Plots similar to the following will be saved to `/results` folder:
+
+Show Images
 
 
 
