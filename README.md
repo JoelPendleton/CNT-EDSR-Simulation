@@ -154,8 +154,7 @@ Within the class there are a variety of functions. They are described here
 
 
 
-* `cosine_v_ac(time, z, eV_0_au, pulse_frequency_au, total_length_au)`
-</br>
+* `cosine_v_ac(time, z, eV_0_au, pulse_frequency_au, total_length_au)`</br>
 </br> Function to define the alternating potential associated the alternating electric field as a cosine function. 
     * <b>Arguments</b>:
         * `time`: the current time step of the simulation
