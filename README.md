@@ -37,6 +37,11 @@ conda install -c intel mpi4py
 conda install tkwant -c conda-forge
 ```
 
+### My Data
+
+The results of my simulations used in my Master's thesis can be found on [Google Drive](https://drive.google.com/drive/folders/1aA9u9uZPkQBIRVceL2X89pe_fS5aaqBI?usp=sharing)
+
+
 ## Directories
 
 * ```evolve-output/```: the files produced by the the time evolution of the simulator.
