@@ -17,7 +17,6 @@ I recommend using my docker image by running the following:
 ```
 docker pull joelpendleton/cnt-edsr-simulation
 docker run joelpendleton/cnt-edsr-simulation
-conda activate env-tkwant
 ```
 
 Alternatively, you run the following installation commands:
